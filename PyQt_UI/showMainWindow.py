@@ -436,7 +436,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
         hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
         hsv_flag_v =  HSV[:,:, 2] > 0.6*255
-        # num_flag = hsv_flag_h | hsv_flag_v
+
         num_flag=np.array(~(hsv_flag_h|hsv_flag_v),dtype='uint8')
         contextflag=np.expand_dims(num_flag, axis=2)
         HSV=HSV*contextflag
