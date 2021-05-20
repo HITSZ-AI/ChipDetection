@@ -401,7 +401,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         reply =QMessageBox.critical(self, '局部覆盖', '局部！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
 
-
     def showHSVChannelInputDialog(self):
         retValue = self.HSVChannelUI.exec_()
         if retValue == QtWidgets.QDialog.Accepted:
@@ -466,7 +465,6 @@ class regionSplitWindow(QDialog,Ui_Dialog):
         self.button_confirm.clicked.connect(self.dataTrans)
 
     def dataTrans(self):
-        #print(self.comboBox_bigCh.currentIndex(),self.comboBox_smallCh.currentIndex(),self.lineEdit_diffCh.text())
         #传递多个参数，用下列代码
         #self.signal_diffCh.emit(str(self.comboBox_bigCh.currentIndex()),
         #                      str(self.comboBox_smallCh.currentIndex()),self.lineEdit_diffCh.text())
