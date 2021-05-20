@@ -1,9 +1,13 @@
-from PyQt_UI.MainWindow  import Ui_MainWindow
-from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon
-from PyQt_UI.regionSplit import Ui_Dialog
 from PyQt5.QtCore import QObject , pyqtSignal
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt_UI.MainWindow  import Ui_MainWindow
+from PyQt_UI.regionSplit import Ui_Dialog
+from PyQt_UI.CoordinateSelectUI import CoordinateSelect_Ui_dialog
+from PyQt_UI.HSV_Channel_Select import HSV_Ui_Dialog
+import scipy.io as io
+import PyQt_UI.utils as utils
 import cv2
 import sys
 import os
@@ -48,18 +52,35 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.regionSplitWindow.button_cancel.clicked.connect(self.closeWindow)
         self.layer_Overlay.triggered.connect(self.layerOverlay)
         self.saveAsTXT.triggered.connect(self.BinaryImgToTxt)
+        self.cor_Input.triggered.connect(self.showCoordianteInputDialog)
+        self.img_Recover.triggered.connect(self.showRecoverImage)
+        self.local_Cover.triggered.connect(self.localCover)
+
+        # SeclectCoordinator
+        self.CoordinateSelectDialog = showCorrdinateDialog()
+        self.IsShrankFlag = False  # 是否当前显示的图是小图
+        self.curHandleImagepath = ''  # 使用全局变量保存当前正在处理的整个大图
+        self.label_OrImg.mousePressEvent = self.getPos
+
+        # HSV_Channel_SelectUI
+        self.Handle_HSV_M1.triggered.connect(self.showHSVChannelInputDialog)
+        self.Handle_HSV_M2.triggered.connect(self.showHSVChannelInputDialog)
+        self.HSVChannelUI = showHSV_Channel_SelectUI()
 
     def readImg(self):
+
         # 从指定目录打开图片（*.jpg *.gif *.png *.jpeg），返回路径
         image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', 'E:\\Projects\\Items\\ChipTest\\images', 'Image files (*.jpg *.gif *.png *.jpeg)')
         # 缩放图片 设置标签的图片
         jpg = QtGui.QPixmap(image_file).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         if(image_file==''):
             return 0
+        #注意此处的路径关系
+        self.curHandleImagepath = image_file
         self.OrImgPath = image_file
-        #print(self.OrImgPath)
-        #print(self.label_OrImg.width(),self.label_OrImg.height())
+        self.CurHandleImage = cv2.imread(image_file)
         self.label_OrImg.setPixmap(jpg)
+        self.IsShrankFlag = None
 
     def saveBinaryImg(self):
         #保存（*.jpg *.gif *.png *.jpeg）图片，返回路径
@@ -73,12 +94,26 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         cv2.imwrite(image_file,img)
 
     def binaryImg(self):
-        if(self.OrImgPath==''):
-            return 0
-        img,binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
-        img = QtGui.QPixmap(binaryImgPath).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-        self.BinaryImgPath = binaryImgPath
-        self.label_BinaryImg.setPixmap(img)
+        if not self.IsShrankFlag:
+            if(self.OrImgPath==''):
+                return 0
+            img,binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
+            img = QtGui.QPixmap(binaryImgPath).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.BinaryImgPath = binaryImgPath
+            self.label_BinaryImg.setPixmap(img)
+        else:
+            # img = cv2.imread(self.OrImgPath)
+            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+            rec_img = self.CurHandleImage[n_start_y:n_end_y, n_start_x:n_end_x, :]
+            # 将图片转化成Qt可读格式
+            gray = cv2.cvtColor(rec_img, cv2.COLOR_BGR2GRAY)
+            # 指定阈值 灰度二值化
+            retval, dst = cv2.threshold(gray, self.Threshold, 255, cv2.THRESH_BINARY)
+            blur = cv2.medianBlur(dst, 5)
+            image = QtGui.QImage(blur, blur.shape[1], blur.shape[0], blur.shape[1], QtGui.QImage.Format_Indexed8)
+            # 加载图片,并自定义图片展示尺寸
+            img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.label_BinaryImg.setPixmap(img)
 
     def getThreshold(self):
         return self.Threshold
@@ -288,6 +323,135 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             file_handle.write('\n')
         return 0
 
+    def getPos(self, event):
+        x = event.pos().x()
+        y = event.pos().y()
+        if self.curHandleImagepath == '':
+            return
+        label_width = self.label_OrImg.width()
+        label_hight = self.label_OrImg.height()
+        image_width = self.CurHandleImage.shape[0]
+        image_hight = self.CurHandleImage.shape[1]
+        real_x = float(x) / float(label_width) * image_width
+        real_y = float(y) / float(label_hight) * image_hight
+        print("xxxxx%s" % x)
+        print("yyyyy%s" % y)
+        NowCorrdinate = '横坐标：' + str(int(real_x)) + ' 纵坐标: ' + str(int(real_y))
+        QMessageBox.about(self, '当前坐标', NowCorrdinate)
+
+    def mouseMoveEvent(self, event):
+        s = event.windowPos()
+        self.setMouseTracking(True)
+        print('X:' + str(s.x()))
+        print('Y:' + str(s.y()))
+
+    def shrinkImage(self):
+        self.IsShrankFlag = True  # 是否当前显示的图是小图
+        img = cv2.imread(self.OrImgPath)
+        n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+        rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
+        RGBImg = cv2.cvtColor(rec_img, cv2.COLOR_BGR2RGB)
+
+        image = QtGui.QImage(RGBImg, RGBImg.shape[1], RGBImg.shape[0],RGBImg.shape[1]*RGBImg.shape[2], QtGui.QImage.Format_RGB888)
+        image = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
+        self.label_OrImg.setPixmap(image)
+
+
+    def showCoordianteInputDialog(self):
+        if self.curHandleImagepath == '':
+            reply = QMessageBox.critical(self, '未读取图像', '请先读取图像', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if (reply == QMessageBox.Yes):
+                self.readImg()
+            return 0
+
+        retValue = self.CoordinateSelectDialog.exec_()
+        if retValue == QtWidgets.QDialog.Accepted:
+            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+            if ((n_end_x < n_start_x) | (n_end_y < n_start_y)):
+                reply = QMessageBox.critical(self, '错误', '输入的起点坐标必须小于终点坐标', QMessageBox.Yes | QMessageBox.No,
+                                             QMessageBox.Yes)
+                if (reply == QMessageBox.Yes):
+                    self.showCoordianteInputDialog()
+                return
+            elif ((n_end_x > self.CurHandleImage.shape[0]) | (n_end_y > self.CurHandleImage.shape[1])):
+                reply = QMessageBox.critical(self, '错误', '输入的坐标超过图片坐标', QMessageBox.Yes | QMessageBox.No,
+                                             QMessageBox.Yes)
+                if (reply == QMessageBox.Yes):
+                    self.showCoordianteInputDialog()
+                return
+            elif ((n_end_x > n_start_x) & (n_end_y > n_start_y) & (n_end_x < self.CurHandleImage.shape[0]) & (
+                    n_end_y < self.CurHandleImage.shape[1])):
+                self.shrinkImage()
+            else:
+                reply = QMessageBox.critical(self, '未知错误', '未知错误', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                print('New error')
+                return 0
+
+    def showRecoverImage(self):
+        if (self.OrImgPath == ''):
+            return
+        RGB_Image = cv2.cvtColor(self.CurHandleImage, cv2.COLOR_BGR2RGB)
+        image = QtGui.QImage(RGB_Image, RGB_Image.shape[1], RGB_Image.shape[0], RGB_Image.shape[1] * 3,
+                             QtGui.QImage.Format_RGB888)
+        img_show = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
+        self.label_OrImg.setPixmap(img_show)
+        self.IsShrankFlag = None
+
+    def localCover(self):
+        reply =QMessageBox.critical(self, '局部覆盖', '局部！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+
+
+
+    def showHSVChannelInputDialog(self):
+        retValue = self.HSVChannelUI.exec_()
+        if retValue == QtWidgets.QDialog.Accepted:
+            [h_1_Start,h_1_End,h_2_Start,h_2_End],[s_1_Start,s_1_End,s_2_Start,s_2_End],[v_1_Start,v_1_End,v_2_Start,v_2_End]=self.HSVChannelUI.getHSVData()
+            self.HandleHSVTract()
+            QMessageBox.critical(self, '信息测试', '收到信息', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+
+     #根据HSV通道的值进行滤波
+    def HandleHSVTract(self):
+        if self.curHandleImagepath == '':
+            reply = QMessageBox.critical(self, '未读取图像', '请先读取图像', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if (reply == QMessageBox.Yes):
+                self.readImg()
+            return
+
+        image = cv2.imread(self.OrImgPath)
+        [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
+        [v_1_Start, v_1_End, v_2_Start, v_2_End]]= self.HSVChannelUI.getHSVData()
+        HSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        h_1_Start=0
+        h_1_End=0.5
+        h_2_Start=0.6
+        h_2_End=1
+        v_1_Start=0
+        v_1_End=0.6
+
+        H_Channel_Flag=((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_1_End*180)) | ((h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_2_End*180))
+        S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < s_1_End * 255) | (s_2_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < s_2_End * 255)
+        V_Channel_Flag = (v_1_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < v_1_End * 255) | ((v_2_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < v_2_End * 255))
+
+
+        hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
+        hsv_flag_v =  HSV[:,:, 2] > 0.6*255
+        # num_flag = hsv_flag_h | hsv_flag_v
+        num_flag=np.array(~(hsv_flag_h|hsv_flag_v),dtype='uint8')
+        contextflag=np.expand_dims(num_flag, axis=2)
+        HSV=HSV*contextflag
+
+        new_image=cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
+
+        cv2.imwrite('E:/ChipReverseDesignPro/ChipTest/PyQt_UI/HSV_Changled.jpg', new_image)
+
+
+        # RGBImg = cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB)
+        # 将图片转化成Qt可读格式
+        image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
+        # 加载图片,并自定义图片展示尺寸
+        image = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
+        self.label_OrImg.setPixmap(image)
 
 #子界面类，用于显示父窗口中的子窗口，解决QInputDialog一次只能输入一个弹窗的困扰
 class regionSplitWindow(QDialog,Ui_Dialog):
@@ -310,6 +474,106 @@ class regionSplitWindow(QDialog,Ui_Dialog):
         #self.signal_diffCh.emit(str(self.comboBox_bigCh.currentIndex()),
         #                      str(self.comboBox_smallCh.currentIndex()),self.lineEdit_diffCh.text())
         self.signal_diffCh.emit(self.lineEdit_diffCh.text())
+
+#子界面类  坐标选择
+class showCorrdinateDialog(QDialog, CoordinateSelect_Ui_dialog):
+    def __init__(self, parent=None):
+            super().__init__(parent)
+            self.setupUi(self)
+            self.corrdinate_start_x = -1
+            self.corrdinate_start_y = -1
+            self.corrdinate_end_x = -1
+            self.corrdinate_end_y = -1
+
+    def getCorrdiante(self):
+            return [self.corrdinate_start_x, self.corrdinate_start_y, self.corrdinate_end_x, self.corrdinate_end_y]
+
+    def accept(self):
+            Text_Start_x = self.lineEdit_Start_x.text()
+            Text_Start_y = self.lineEdit_Start_y.text()
+            Text_End_x = self.lineEdit_End_x.text()
+            Text_End_y = self.lineEdit_End_y.text()
+            if (utils.is_number(Text_Start_x) & utils.is_number(Text_Start_y) & utils.is_number(
+                    Text_End_x) & utils.is_number(Text_End_y)):
+                self.corrdinate_start_x = int(float(Text_Start_x))
+                self.corrdinate_start_y = int(float(Text_Start_y))
+                self.corrdinate_end_x = int(float(Text_End_x))
+                self.corrdinate_end_y = int(float(Text_End_y))
+                super().accept()
+            else:
+                # 输入的字符串有些不能转换为数字
+                print("输入的字符串不能全部转换为数字，请重新输入！")
+                reply = QMessageBox.critical(self, '错误', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No,
+                                             QMessageBox.Yes)
+
+#子界面类  HSV算法处理
+class showHSV_Channel_SelectUI(QDialog,HSV_Ui_Dialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+        self.h_validation_1_start_value=-1
+        self.h_validation_1_end_value = -1
+        self.h_validation_2_start_value = -1
+        self.h_validation_2_end_value = -1
+
+        self.s_validation_1_start_value = -1
+        self.s_validation_1_end_value = -1
+        self.s_validation_2_start_value = -1
+        self.s_validation_2_end_value = -1
+
+        self.v_validation_1_start_value = -1
+        self.v_validation_1_end_value = -1
+        self.v_validation_2_start_value = -1
+        self.v_validation_2_end_value = -1
+
+    def getHSVData(self):
+        Text_h_validation_1_start = self.H_Valid1_Start.text()
+        Text_h_validation_1_end   = self.H_Valid1_End.text()
+        Text_h_validation_2_start = self.H_Valid2_Start.text()
+        Text_h_validation_2_end   = self.H_Valid2_End.text()
+
+        Text_s_validation_1_start = self.S_Valid1_Start.text()
+        Text_s_validation_1_end   = self.S_Valid1_End.text()
+        Text_s_validation_2_start = self.S_Valid2_Start.text()
+        Text_s_validation_2_end   = self.S_Valid2_End.text()
+
+        Text_v_validation_1_start = self.V_Valid1_Start.text()
+        Text_v_validation_1_end   = self.V_Valid1_End.text()
+        Text_v_validation_2_start = self.V_Valid2_Start.text()
+        Text_v_validation_2_end   = self.V_Valid2_End.text()
+
+        self.h_validation_1_start_value = utils.converStr2float(Text_h_validation_1_start)
+        self.h_validation_1_end_value = utils.converStr2float(Text_h_validation_1_end)
+        self.h_validation_2_start_value = utils.converStr2float(Text_h_validation_2_start)
+        self.h_validation_2_end_value = utils.converStr2float(Text_h_validation_2_end)
+
+        self.s_validation_1_start_value = utils.converStr2float(Text_s_validation_1_start)
+        self.s_validation_1_end_value = utils.converStr2float(Text_s_validation_1_end)
+        self.s_validation_2_start_value = utils.converStr2float(Text_s_validation_2_start)
+        self.s_validation_2_end_value = utils.converStr2float(Text_s_validation_2_end)
+
+        self.v_validation_1_start_value = utils.converStr2float(Text_v_validation_1_start)
+        self.v_validation_1_end_value = utils.converStr2float(Text_v_validation_1_end)
+        self.v_validation_2_start_value = utils.converStr2float(Text_v_validation_2_start)
+        self.v_validation_2_end_value = utils.converStr2float(Text_v_validation_2_end)
+
+
+        return [[self.h_validation_1_start_value,self.h_validation_1_end_value,self.h_validation_2_start_value,self.h_validation_2_end_value],
+                [ self.s_validation_1_start_value,self.s_validation_1_end_value, self.s_validation_2_start_value, self.s_validation_2_end_value],
+                [ self.v_validation_1_start_value ,  self.v_validation_1_end_value ,self.v_validation_2_start_value ,   self.v_validation_2_end_value]]
+
+
+    def accept(self):
+          H_Chanel_Input_flag = utils.is_number(self.H_Valid1_Start.text())&utils.is_number(self.H_Valid1_End.text())&utils.is_number(self.H_Valid2_Start.text())&utils.is_number(self.H_Valid2_End.text())
+          S_Chanel_Input_flag = utils.is_number(self.S_Valid1_Start.text()) & utils.is_number(self.S_Valid1_End.text()) & utils.is_number(self.S_Valid2_Start.text()) & utils.is_number(self.S_Valid2_End.text())
+          V_Chanel_Input_flag = utils.is_number(self.V_Valid1_Start.text()) & utils.is_number(self.V_Valid1_End.text()) & utils.is_number(self.V_Valid2_Start.text()) & utils.is_number(self.V_Valid2_End.text())
+
+          if(H_Chanel_Input_flag&S_Chanel_Input_flag&V_Chanel_Input_flag):
+              super().accept()
+          else:
+            reply = QMessageBox.critical(self, '请检查数字输入', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

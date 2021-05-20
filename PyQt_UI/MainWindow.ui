@@ -216,6 +216,7 @@
      </property>
      <addaction name="single_Threshold"/>
      <addaction name="channel_Diff"/>
+     <addaction name="Handle_HSV_M1"/>
     </widget>
     <widget class="QMenu" name="layer_M2">
      <property name="title">
@@ -223,6 +224,7 @@
      </property>
      <addaction name="single_Threshold_2"/>
      <addaction name="channel_Diff_2"/>
+     <addaction name="Handle_HSV_M2"/>
     </widget>
     <addaction name="layer_M1"/>
     <addaction name="layer_M2"/>
@@ -329,6 +331,16 @@
   <action name="layer_Overlay">
    <property name="text">
     <string>图层叠加</string>
+   </property>
+  </action>
+  <action name="Handle_HSV_M1">
+   <property name="text">
+    <string>HSV</string>
+   </property>
+  </action>
+  <action name="Handle_HSV_M2">
+   <property name="text">
+    <string>HSV</string>
    </property>
   </action>
  </widget>
