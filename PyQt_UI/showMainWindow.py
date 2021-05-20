@@ -444,9 +444,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         new_image=cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
 
         cv2.imwrite('E:/ChipReverseDesignPro/ChipTest/PyQt_UI/HSV_Changled.jpg', new_image)
-
-
-        # RGBImg = cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB)
         # 将图片转化成Qt可读格式
         image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
         # 加载图片,并自定义图片展示尺寸
