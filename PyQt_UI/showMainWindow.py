@@ -443,12 +443,12 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
         new_image=cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
 
-        cv2.imwrite('E:/ChipReverseDesignPro/ChipTest/PyQt_UI/HSV_Changled.jpg', new_image)
+        cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', new_image)
         # 将图片转化成Qt可读格式
         image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
         # 加载图片,并自定义图片展示尺寸
-        image = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
-        self.label_OrImg.setPixmap(image)
+        image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+        self.label_BinaryImg.setPixmap(image)
 
 #子界面类，用于显示父窗口中的子窗口，解决QInputDialog一次只能输入一个弹窗的困扰
 class regionSplitWindow(QDialog,Ui_Dialog):
