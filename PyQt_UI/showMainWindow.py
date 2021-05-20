@@ -568,7 +568,7 @@ class showHSV_Channel_SelectUI(QDialog,HSV_Ui_Dialog):
           else:
             reply = QMessageBox.critical(self, '请检查数字输入', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
-
+#中国的墙太厚了，访问GitHub真难
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
