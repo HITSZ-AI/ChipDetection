@@ -11,6 +11,7 @@ import PyQt_UI.utils as utils
 import cv2
 import sys
 import os
+import copy
 import numpy as np
 import NewLine as nl
 
@@ -29,6 +30,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.OrImgPath = ''
         self.BinaryImgPath = ''
         self.MergeImgPath=''
+        self.localImgPath=''   #局部区域的小图的路径
         self.diffCh=30
         self.bigCh=0     #R通道
         self.smallCh=1   #G通道
@@ -58,8 +60,8 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
         # SeclectCoordinator
         self.CoordinateSelectDialog = showCorrdinateDialog()
-        self.IsShrankFlag = False  # 是否当前显示的图是小图
-        self.curHandleImagepath = ''  # 使用全局变量保存当前正在处理的整个大图
+        self.IsShrankFlag = False  # 判断当前界面左侧，显示的图是否为局部的小图
+        #self.curHandleImagepath = ''  # 使用全局变量保存当前正在处理的整个大图，与OrImgPath参数功能重叠，注释掉
         self.label_OrImg.mousePressEvent = self.getPos
 
         # HSV_Channel_SelectUI
@@ -70,24 +72,23 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
     def readImg(self):
 
         # 从指定目录打开图片（*.jpg *.gif *.png *.jpeg），返回路径
-        image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', 'E:\\Projects\\Items\\ChipTest\\images', 'Image files (*.jpg *.gif *.png *.jpeg)')
+        image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', 'C:\\', 'Image files (*.jpg *.gif *.png *.jpeg)')
         # 缩放图片 设置标签的图片
         jpg = QtGui.QPixmap(image_file).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         if(image_file==''):
             return 0
         #注意此处的路径关系
-        self.curHandleImagepath = image_file
         self.OrImgPath = image_file
+        #self.curHandleImagepath = image_file
         self.CurHandleImage = cv2.imread(image_file)
         self.label_OrImg.setPixmap(jpg)
-        self.IsShrankFlag = None
+        self.IsShrankFlag = False
 
     def saveBinaryImg(self):
         #保存（*.jpg *.gif *.png *.jpeg）图片，返回路径
         image_file,_=QFileDialog.getSaveFileName(self,'保存二值化图片','C:\\','Image files (*.jpg *.gif *.png *.jpeg)')
         #设置标签的图片
-        print(image_file)
-        #img=self.label_BinaryImg.pixmap().toImage()
+        #print(image_file)
         if(image_file==''):
             return 0
         img=cv2.imread(self.BinaryImgPath)
@@ -102,14 +103,14 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.BinaryImgPath = binaryImgPath
             self.label_BinaryImg.setPixmap(img)
         else:
-            # img = cv2.imread(self.OrImgPath)
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
-            rec_img = self.CurHandleImage[n_start_y:n_end_y, n_start_x:n_end_x, :]
+            self.rec_img = self.CurHandleImage[n_start_y:n_end_y, n_start_x:n_end_x, :]
             # 将图片转化成Qt可读格式
-            gray = cv2.cvtColor(rec_img, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(self.rec_img, cv2.COLOR_BGR2GRAY)
             # 指定阈值 灰度二值化
             retval, dst = cv2.threshold(gray, self.Threshold, 255, cv2.THRESH_BINARY)
             blur = cv2.medianBlur(dst, 5)
+
             image = QtGui.QImage(blur, blur.shape[1], blur.shape[0], blur.shape[1], QtGui.QImage.Format_Indexed8)
             # 加载图片,并自定义图片展示尺寸
             img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
@@ -138,57 +139,90 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
     def getChDiffData(self,diffCh):
         print('diffch的值为：',diffCh)
         d=int(diffCh)
-        img = cv2.imread(self.OrImgPath)
+        if(self.OrImgPath==''):
+            QMessageBox.warning(self, "提示", "未读取图层照片,请读取图片后再处理", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            return 0
+        if(not self.IsShrankFlag):
+            print('进入全局处理函数')
+            #读取原图的全局变量矩阵，或直接读取路径,
+            #需要注意：如果使用全局变量CurHandleImage,则必须使用copy中的深层拷贝函数，不然在函数传递或处理中，导致原图的数组被修改
+            #直接赋值或者copy.copy函数都是浅拷贝，实则还是指向同一内存地址，1个变量改变则所有变量全部改变。因此，推荐使用读取路径的方式
+            #img = cv2.imread(self.OrImgPath)
+            img=copy.deepcopy(self.CurHandleImage)
+            self.ChDiffExtract(img, d)  #无需返回参数，已经在内存中发生修改
 
-        #按照第三维取最大数组和最小数组，用于计算标志位
-        max_RGB= np.amax(img, axis=2)
-        min_RGB = np.amin(img, axis=2)
-        #分别获取三个标志位矩阵，将其相乘
-        diff_RGB=((max_RGB-min_RGB)<d)
-        max_RGB=(max_RGB<150)
-        min_RGB=(min_RGB>50)
-        rec_RGB=(diff_RGB*max_RGB*min_RGB)
-        #不能用标志矩阵直接和img三维数组相乘，与numpy数组存在一定差异
-        #img=(img*diff_RGB)
-        img[:,:,0]=img[:,:,0]*rec_RGB
-        img[:, :, 1] = img[:, :, 1] * rec_RGB
-        img[:, :, 2] = img[:, :, 2] * rec_RGB
-        img[img>0]=255
+            #默认将二值化的img图片写入原始图片的目录下
+            content, tempfilename = os.path.split(self.OrImgPath)
+            filename, extension = os.path.splitext(tempfilename)
+            filename = filename + str('_ChDiffBinary') + extension
+            filepath = os.path.join(content, filename)
+            filepath = filepath.replace('\\', '/')
+            cv2.imwrite(filepath,img)
 
-        #遍历方法太慢，最好不要使用
+            #二值化图片路径存入成员变量
+            self.BinaryImgPath=filepath
+
+            # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
+            img=cv2.resize(img,(self.label_BinaryImg.height(), self.label_BinaryImg.width()))
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],img_rgb.shape[1] * img_rgb.shape[2],
+                                      QtGui.QImage.Format_RGB888)
+
+        else:
+            # 读取局部区域的子图，进行通道差值处理
+            print('已经进入局部处理函数',d)
+            #需要深度copy
+            img=copy.deepcopy(self.rec_img)
+            self.ChDiffExtract(img, d)
+            # 默认将二值化的img图片写入原始图片的目录下
+            content, tempfilename = os.path.split(self.OrImgPath)
+            filename, extension = os.path.splitext(tempfilename)
+            filename = filename + str('_loclChDiffBinary') + extension
+            filepath = os.path.join(content, filename)
+            filepath = filepath.replace('\\', '/')
+            cv2.imwrite(filepath, img)
+            # 将局部的二值化图片路径，存入成员变量
+            self.localImgPath = filepath
+
+            # 将图片转成BGR模式
+            img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] * img_rgb.shape[2],
+                                 QtGui.QImage.Format_RGB888)
+        # 显示图片到label中
+        self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
+
+    #通道差值处理函数
+    def ChDiffExtract(self,img,d):
+        # 遍历方法太慢，最好不要使用
         # for i in range(img.shape[0]):
         #     for j in range(img.shape[1]):
 
-        #默认将二值化的img图片写入原始图片的目录下
-        content, tempfilename = os.path.split(self.OrImgPath)
-        filename, extension = os.path.splitext(tempfilename)
-        filename = filename + str('_ChDiffBinary') + extension
-        filepath = os.path.join(content, filename)
-        filepath = filepath.replace('\\', '/')
-        cv2.imwrite(filepath,img)
-
-        #二值化图片路径存入成员变量
-        self.BinaryImgPath=filepath
-
-        # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
-        img=cv2.resize(img,(self.label_BinaryImg.height(), self.label_BinaryImg.width()))
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],img_rgb.shape[1] * img_rgb.shape[2],
-                                  QtGui.QImage.Format_RGB888)
-
-        # 显示图片到label中
-        self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
+        # 按照第三维取最大数组和最小数组，用于计算标志位
+        max_RGB = np.amax(img, axis=2)
+        min_RGB = np.amin(img, axis=2)
+        # 分别获取三个标志位矩阵，将其相乘,得到最终的标志位矩阵
+        diff_RGB = ((max_RGB - min_RGB) < d)
+        max_RGB = (max_RGB < 150)
+        min_RGB = (min_RGB > 50)
+        rec_RGB = (diff_RGB * max_RGB * min_RGB)
+        # 不能用标志矩阵直接和img三维数组相乘，与numpy数组存在一定差异
+        # img=(img*diff_RGB)
+        img[:, :, 0] = img[:, :, 0] * rec_RGB
+        img[:, :, 1] = img[:, :, 1] * rec_RGB
+        img[:, :, 2] = img[:, :, 2] * rec_RGB
+        img[img > 0] = 255
+        return img  #数组参数，已经在内存中修改，返回与否不影响了
 
     def closeWindow(self):
         self.regionSplitWindow.close()
 
-    #OpenCV图片数据格式转为QImage数据格式的函数
+    #OpenCV图片数据格式转为QImage数据格式的函数，同理，数组传递的时候，需要深层拷贝，无需返回值
     def cvimg_to_qtimg(self,cvimg):
         height, width, depth = cvimg.shape
         cvimg = cv2.cvtColor(cvimg, cv2.COLOR_BGR2RGB)
         cvimg = QtGui.QImage(cvimg.data, width, height,width*depth, QtGui.QImage.Format_RGB888)
         return cvimg
-
 
     def layerOverlay(self):
         #第一种将pyqt的按钮改成中文，比较美观，我使用的是第二种
@@ -326,7 +360,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
     def getPos(self, event):
         x = event.pos().x()
         y = event.pos().y()
-        if self.curHandleImagepath == '':
+        if self.OrImgPath == '':
             return
         label_width = self.label_OrImg.width()
         label_hight = self.label_OrImg.height()
@@ -349,17 +383,16 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.IsShrankFlag = True  # 是否当前显示的图是小图
         img = cv2.imread(self.OrImgPath)
         n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
-        rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
-        RGBImg = cv2.cvtColor(rec_img, cv2.COLOR_BGR2RGB)
-
+        #将局部区域小图的数组定义为私有变量，方便存储
+        self.rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
+        RGBImg = cv2.cvtColor(self.rec_img, cv2.COLOR_BGR2RGB)
         image = QtGui.QImage(RGBImg, RGBImg.shape[1], RGBImg.shape[0],RGBImg.shape[1]*RGBImg.shape[2], QtGui.QImage.Format_RGB888)
         image = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         self.label_OrImg.setPixmap(image)
 
-
     def showCoordianteInputDialog(self):
-        if self.curHandleImagepath == '':
-            reply = QMessageBox.critical(self, '未读取图像', '请先读取图像', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if self.OrImgPath == '':
+            reply = QMessageBox.information(self, '未读取图像', '请先读取图像', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if (reply == QMessageBox.Yes):
                 self.readImg()
             return 0
@@ -368,13 +401,13 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         if retValue == QtWidgets.QDialog.Accepted:
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
             if ((n_end_x < n_start_x) | (n_end_y < n_start_y)):
-                reply = QMessageBox.critical(self, '错误', '输入的起点坐标必须小于终点坐标', QMessageBox.Yes | QMessageBox.No,
+                reply = QMessageBox.information(self, '错误', '输入的起点坐标必须小于终点坐标', QMessageBox.Yes | QMessageBox.No,
                                              QMessageBox.Yes)
                 if (reply == QMessageBox.Yes):
                     self.showCoordianteInputDialog()
                 return
             elif ((n_end_x > self.CurHandleImage.shape[0]) | (n_end_y > self.CurHandleImage.shape[1])):
-                reply = QMessageBox.critical(self, '错误', '输入的坐标超过图片坐标', QMessageBox.Yes | QMessageBox.No,
+                reply = QMessageBox.information(self, '错误', '输入的坐标超过图片坐标', QMessageBox.Yes | QMessageBox.No,
                                              QMessageBox.Yes)
                 if (reply == QMessageBox.Yes):
                     self.showCoordianteInputDialog()
@@ -383,7 +416,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
                     n_end_y < self.CurHandleImage.shape[1])):
                 self.shrinkImage()
             else:
-                reply = QMessageBox.critical(self, '未知错误', '未知错误', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                reply = QMessageBox.information(self, '未知错误', '未知错误', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
                 print('New error')
                 return 0
 
@@ -398,7 +431,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.IsShrankFlag = None
 
     def localCover(self):
-        reply =QMessageBox.critical(self, '局部覆盖', '局部！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        reply =QMessageBox.information(self, '局部覆盖', '局部！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
 
     def showHSVChannelInputDialog(self):
@@ -406,12 +439,12 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         if retValue == QtWidgets.QDialog.Accepted:
             [h_1_Start,h_1_End,h_2_Start,h_2_End],[s_1_Start,s_1_End,s_2_Start,s_2_End],[v_1_Start,v_1_End,v_2_Start,v_2_End]=self.HSVChannelUI.getHSVData()
             self.HandleHSVTract()
-            QMessageBox.critical(self, '信息测试', '收到信息', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            QMessageBox.information(self, '信息测试', '收到信息', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
      #根据HSV通道的值进行滤波
     def HandleHSVTract(self):
-        if self.curHandleImagepath == '':
-            reply = QMessageBox.critical(self, '未读取图像', '请先读取图像', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if self.OrImgPath == '':
+            reply = QMessageBox.information(self, '未读取图像', '请先读取图像', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if (reply == QMessageBox.Yes):
                 self.readImg()
             return
@@ -498,7 +531,7 @@ class showCorrdinateDialog(QDialog, CoordinateSelect_Ui_dialog):
             else:
                 # 输入的字符串有些不能转换为数字
                 print("输入的字符串不能全部转换为数字，请重新输入！")
-                reply = QMessageBox.critical(self, '错误', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No,
+                reply = QMessageBox.information(self, '错误', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No,
                                              QMessageBox.Yes)
 
 #子界面类  HSV算法处理
@@ -566,7 +599,7 @@ class showHSV_Channel_SelectUI(QDialog,HSV_Ui_Dialog):
           if(H_Chanel_Input_flag&S_Chanel_Input_flag&V_Chanel_Input_flag):
               super().accept()
           else:
-            reply = QMessageBox.critical(self, '请检查数字输入', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            reply = QMessageBox.information(self, '请检查数字输入', '输入的字符串不能全部转换为数字，请重新输入！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
 #中国的墙太厚了，访问GitHub真难
 
