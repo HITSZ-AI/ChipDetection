@@ -256,7 +256,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             binbaryImg[:, :, 0] = 0
 
             #保存图像半透明式覆盖原图层照片及其路径
-            img = cv2.addWeighted(orImg, 0.95, binbaryImg, 0.05, 0)
+            img = cv2.addWeighted(orImg, 0.75, binbaryImg, 0.25, 0)
             content, tempfilename = os.path.split(self.OrImgPath)
             filename, extension = os.path.splitext(tempfilename)
             filename = filename + str('_MergeImg') + extension
