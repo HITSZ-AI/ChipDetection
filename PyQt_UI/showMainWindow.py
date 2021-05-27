@@ -34,6 +34,8 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.diffCh=30
         self.bigCh=0     #R通道
         self.smallCh=1   #G通道
+        self.curHandleLocalRectangle=np.zeros((1,1,1)) #当前正处理的局部矩阵
+        self.globalRectangle=np.zeros((1,1,1))         #读取全局矩阵
 
         #初始化部分界面（单阈值图标）
         self.slider_BinaryThre.setMinimum(0)
@@ -61,6 +63,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         # SeclectCoordinator
         self.CoordinateSelectDialog = showCorrdinateDialog()
         self.IsShrankFlag = False  # 判断当前界面左侧，显示的图是否为局部的小图
+
         #self.curHandleImagepath = ''  # 使用全局变量保存当前正在处理的整个大图，与OrImgPath参数功能重叠，注释掉
         self.label_OrImg.mousePressEvent = self.getPos
 
@@ -83,6 +86,10 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.CurHandleImage = cv2.imread(image_file)
         self.label_OrImg.setPixmap(jpg)
         self.IsShrankFlag = False
+        self.curHandleLocalRectangle = cv2.imread(image_file) # 当前正处理的局部矩阵
+        self.globalRectangle = cv2.imread(image_file)  # 全局矩阵
+        print('globalRectangle.shape:%s',self.globalRectangle.shape)
+        print('curHandleLocalRectangle.shape:%s', self.curHandleLocalRectangle.shape)
 
     def saveBinaryImg(self):
         #保存（*.jpg *.gif *.png *.jpeg）图片，返回路径
@@ -99,18 +106,27 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             if(self.OrImgPath==''):
                 return 0
             img,binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
+            self.globalRectangle=img  #显示整个二值化之后的矩阵
+            print( "显示二值化之后的矩阵：%s",self.globalRectangle.shape)
             img = QtGui.QPixmap(binaryImgPath).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.BinaryImgPath = binaryImgPath
             self.label_BinaryImg.setPixmap(img)
         else:
-            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
-            self.rec_img = self.CurHandleImage[n_start_y:n_end_y, n_start_x:n_end_x, :]
-            # 将图片转化成Qt可读格式
-            gray = cv2.cvtColor(self.rec_img, cv2.COLOR_BGR2GRAY)
-            # 指定阈值 灰度二值化
-            retval, dst = cv2.threshold(gray, self.Threshold, 255, cv2.THRESH_BINARY)
-            blur = cv2.medianBlur(dst, 5)
+            # img, binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
+            # self.curHandleLocalRectangle=self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x]
 
+            # rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
+            # # 将图片转化成Qt可读格式
+            # gray = cv2.cvtColor(rec_img, cv2.COLOR_BGR2GRAY)
+            img = cv2.imread(self.OrImgPath)
+            # 指定阈值 灰度二值化
+            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+            rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
+            gray = cv2.cvtColor(rec_img, cv2.COLOR_BGR2GRAY)
+            retval, dst = cv2.threshold(gray, self.Threshold, 255, cv2.THRESH_BINARY)
+            print('curusedThreshold:%s',self.Threshold)
+            blur = cv2.medianBlur(dst, 5)
+            self.curHandleLocalRectangle=blur
             image = QtGui.QImage(blur, blur.shape[1], blur.shape[0], blur.shape[1], QtGui.QImage.Format_Indexed8)
             # 加载图片,并自定义图片展示尺寸
             img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
@@ -122,7 +138,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
     def threshold_change(self):
         self.Threshold=self.slider_BinaryThre.value()
         self.label_ThresholdValue.setText(str(self.Threshold))
-        print(self.Threshold)
+        # print(self.Threshold)
 
     #子菜单点击槽函数
     def channel_Difference(self):
@@ -172,7 +188,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             # 读取局部区域的子图，进行通道差值处理
             print('已经进入局部处理函数',d)
             #需要深度copy
-            img=copy.deepcopy(self.rec_img)
+            img=copy.deepcopy(self.curHandleLocalRectangle)
             self.ChDiffExtract(img, d)
             # 默认将二值化的img图片写入原始图片的目录下
             content, tempfilename = os.path.split(self.OrImgPath)
@@ -384,8 +400,9 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         img = cv2.imread(self.OrImgPath)
         n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
         #将局部区域小图的数组定义为私有变量，方便存储
-        self.rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
-        RGBImg = cv2.cvtColor(self.rec_img, cv2.COLOR_BGR2RGB)
+        # self.curHandleLocalRectangle = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
+        orgRecImage = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
+        RGBImg = cv2.cvtColor(orgRecImage, cv2.COLOR_BGR2RGB)
         image = QtGui.QImage(RGBImg, RGBImg.shape[1], RGBImg.shape[0],RGBImg.shape[1]*RGBImg.shape[2], QtGui.QImage.Format_RGB888)
         image = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         self.label_OrImg.setPixmap(image)
@@ -423,23 +440,54 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
     def showRecoverImage(self):
         if (self.OrImgPath == ''):
             return
-        RGB_Image = cv2.cvtColor(self.CurHandleImage, cv2.COLOR_BGR2RGB)
+        #先显示左边的原图
+        img = cv2.imread(self.OrImgPath)
+        RGB_Image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         image = QtGui.QImage(RGB_Image, RGB_Image.shape[1], RGB_Image.shape[0], RGB_Image.shape[1] * 3,
                              QtGui.QImage.Format_RGB888)
         img_show = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         self.label_OrImg.setPixmap(img_show)
         self.IsShrankFlag = None
+        #同时恢复右边的图像
+        if 2==self.globalRectangle.ndim:
+            image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1], QtGui.QImage.Format_Indexed8)
+            # 加载图片,并自定义图片展示尺寸
+            img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.label_BinaryImg.setPixmap(img)
+            print('二值化图像')
+        elif 3==self.globalRectangle.ndim:
+            cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', self.globalRectangle)
+            # 将图片转化成Qt可读格式
+            image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1] * 3,
+                                 QtGui.QImage.Format_RGB888)
+            # 加载图片,并自定义图片展示尺寸
+            image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.label_BinaryImg.setPixmap(image)
+            print('RGB或者其他图像')
+        else:
+            print('anoter type')
+
+
 
     def localCover(self):
-        reply =QMessageBox.information(self, '局部覆盖', '局部！', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+        # 同时恢复右边的图像
+        if 2 == self.globalRectangle.ndim:
+             self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x]=self.curHandleLocalRectangle
+        elif 3==self.globalRectangle.ndim:
+             self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x,:] = self.curHandleLocalRectangle
+        else:
+            print('程序有问题，出错！！！')
+        self.showRecoverImage()
+        reply =QMessageBox.information(self, '局部覆盖', '局部覆盖完成', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
 
     def showHSVChannelInputDialog(self):
         retValue = self.HSVChannelUI.exec_()
         if retValue == QtWidgets.QDialog.Accepted:
-            [h_1_Start,h_1_End,h_2_Start,h_2_End],[s_1_Start,s_1_End,s_2_Start,s_2_End],[v_1_Start,v_1_End,v_2_Start,v_2_End]=self.HSVChannelUI.getHSVData()
+            # [h_1_Start,h_1_End,h_2_Start,h_2_End],[s_1_Start,s_1_End,s_2_Start,s_2_End],[v_1_Start,v_1_End,v_2_Start,v_2_End]=self.HSVChannelUI.getHSVData()
             self.HandleHSVTract()
-            QMessageBox.information(self, '信息测试', '收到信息', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            QMessageBox.information(self, 'HSV通道颜色提取', '提取完成', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
      #根据HSV通道的值进行滤波
     def HandleHSVTract(self):
@@ -448,39 +496,64 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             if (reply == QMessageBox.Yes):
                 self.readImg()
             return
+        if (not self.IsShrankFlag):
+            image = cv2.imread(self.OrImgPath)
+            [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
+            [v_1_Start, v_1_End, v_2_Start, v_2_End]]= self.HSVChannelUI.getHSVData()
+            HSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-        image = cv2.imread(self.OrImgPath)
-        [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
-        [v_1_Start, v_1_End, v_2_Start, v_2_End]]= self.HSVChannelUI.getHSVData()
-        HSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            H_Channel_Flag=((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_1_End*180)) | ((h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_2_End*180))
+            S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_1_End * 255) | (s_2_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_2_End * 255)
+            V_Channel_Flag = (v_1_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_1_End * 255) | ((v_2_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_2_End * 255))
 
-        h_1_Start=0
-        h_1_End=0.5
-        h_2_Start=0.6
-        h_2_End=1
-        v_1_Start=0
-        v_1_End=0.6
+            # hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
+            # hsv_flag_v =  HSV[:,:, 2] > 0.6*255
+            # num_flag = np.array(~(hsv_flag_h | hsv_flag_v), dtype='uint8')
 
-        H_Channel_Flag=((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_1_End*180)) | ((h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_2_End*180))
-        S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < s_1_End * 255) | (s_2_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < s_2_End * 255)
-        V_Channel_Flag = (v_1_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < v_1_End * 255) | ((v_2_Start * 255 <= HSV[:, :, 0]) & (HSV[:, :, 0] < v_2_End * 255))
+            num_flag_2=H_Channel_Flag & V_Channel_Flag & S_Channel_Flag
+            num_flag=np.array(num_flag_2, dtype='uint8')
+            contextflag=np.expand_dims(num_flag, axis=2)
+            HSV=HSV*contextflag
 
+            new_image=cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
+            self.globalRectangle=new_image
+            cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', new_image)
+            # 将图片转化成Qt可读格式
+            image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
+            # 加载图片,并自定义图片展示尺寸
+            image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.label_BinaryImg.setPixmap(image)
+        else:
+            [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
+             [v_1_Start, v_1_End, v_2_Start, v_2_End]] = self.HSVChannelUI.getHSVData()
+            HSV = cv2.cvtColor(self.curHandleLocalRectangle, cv2.COLOR_BGR2HSV)
 
-        hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
-        hsv_flag_v =  HSV[:,:, 2] > 0.6*255
+            H_Channel_Flag = ((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0] < h_1_End * 180)) | (
+                        (h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0] < h_2_End * 180))
+            S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_1_End * 255) | (
+                        s_2_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_2_End * 255)
+            V_Channel_Flag = (v_1_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_1_End * 255) | (
+                        (v_2_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_2_End * 255))
 
-        num_flag=np.array(~(hsv_flag_h|hsv_flag_v),dtype='uint8')
-        contextflag=np.expand_dims(num_flag, axis=2)
-        HSV=HSV*contextflag
+            # hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
+            # hsv_flag_v =  HSV[:,:, 2] > 0.6*255
+            # num_flag = np.array(~(hsv_flag_h | hsv_flag_v), dtype='uint8')
 
-        new_image=cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
+            num_flag_2 = H_Channel_Flag & V_Channel_Flag & S_Channel_Flag
+            num_flag = np.array(num_flag_2, dtype='uint8')
+            contextflag = np.expand_dims(num_flag, axis=2)
+            HSV = HSV * contextflag
 
-        cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', new_image)
-        # 将图片转化成Qt可读格式
-        image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
-        # 加载图片,并自定义图片展示尺寸
-        image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-        self.label_BinaryImg.setPixmap(image)
+            new_image = cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
+            self.curHandleLocalRectangle = new_image
+            cv2.imwrite('../images/ImgSave/HSV_Changled_LocalRange.jpg', new_image)
+            # 将图片转化成Qt可读格式
+            image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1] * 3,
+                                 QtGui.QImage.Format_RGB888)
+            # 加载图片,并自定义图片展示尺寸
+            image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.label_BinaryImg.setPixmap(image)
+            print('这是缩放的图像')
 
 #子界面类，用于显示父窗口中的子窗口，解决QInputDialog一次只能输入一个弹窗的困扰
 class regionSplitWindow(QDialog,Ui_Dialog):
@@ -539,20 +612,39 @@ class showHSV_Channel_SelectUI(QDialog,HSV_Ui_Dialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setupUi(self)
-        self.h_validation_1_start_value=-1
-        self.h_validation_1_end_value = -1
-        self.h_validation_2_start_value = -1
-        self.h_validation_2_end_value = -1
 
-        self.s_validation_1_start_value = -1
-        self.s_validation_1_end_value = -1
-        self.s_validation_2_start_value = -1
-        self.s_validation_2_end_value = -1
+        #设定默认参数
+        self.h_validation_1_start_value=0
+        self.h_validation_1_end_value = 0.5
+        self.h_validation_2_start_value = 0.56
+        self.h_validation_2_end_value = 1
 
-        self.v_validation_1_start_value = -1
-        self.v_validation_1_end_value = -1
-        self.v_validation_2_start_value = -1
-        self.v_validation_2_end_value = -1
+        self.s_validation_1_start_value = 0
+        self.s_validation_1_end_value = 1
+        self.s_validation_2_start_value = 0
+        self.s_validation_2_end_value = 1
+
+        self.v_validation_1_start_value = 0
+        self.v_validation_1_end_value = 0.6
+        self.v_validation_2_start_value = 0
+        self.v_validation_2_end_value = 0.6
+        # 初始化H通道的值
+        self.H_Valid1_Start.setText(str(self.h_validation_1_start_value))
+        self.H_Valid1_End.setText(str(self.h_validation_1_end_value))
+        self.H_Valid2_Start.setText(str(self.h_validation_2_start_value))
+        self.H_Valid2_End.setText(str(self.h_validation_2_end_value))
+        # 初始化S颜色通道的值
+        self.S_Valid1_Start.setText(str(self.s_validation_1_start_value))
+        self.S_Valid1_End.setText(str(self.s_validation_1_end_value))
+        self.S_Valid2_Start.setText(str(self.s_validation_2_start_value ))
+        self.S_Valid2_End.setText(str(self.s_validation_2_end_value))
+        # 初始化V颜色通道的值
+        self.V_Valid1_Start.setText(str(self.v_validation_1_start_value))
+        self.V_Valid1_End.setText(str(self.v_validation_1_end_value))
+        self.V_Valid2_Start.setText(str(self.v_validation_2_start_value))
+        self.V_Valid2_End.setText(str(self.v_validation_2_end_value))
+
+
 
     def getHSVData(self):
         Text_h_validation_1_start = self.H_Valid1_Start.text()
