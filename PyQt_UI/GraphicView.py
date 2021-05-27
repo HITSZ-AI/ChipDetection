@@ -1,7 +1,7 @@
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtWidgets import QMainWindow, QApplication, QGraphicsScene, QGraphicsPixmapItem
 from PyQt5.QtGui import QImage, QPixmap
 from   PyQt_UI.Ui_picshow import Ui_MainWindow
+from PyQt5.QtWidgets import *
 import cv2
 
 
@@ -24,8 +24,19 @@ class picturezoom(QMainWindow, Ui_MainWindow):
         self.scene = QGraphicsScene()  # 创建场景
         self.scene.addItem(self.item)
         self.picshow.setScene(self.scene)  # 将场景添加至视图
+        self.item.mousePressEvent=self.getPos
         #调用fitInView
         #self.picshow.fitInView(QGraphicsPixmapItem(pix))
+
+
+    def getPos(self, event):
+        x = event.pos().x()
+        y = event.pos().y()
+
+        print("xxxxx%s" % x)
+        print("yyyyy%s" % y)
+        NowCorrdinate = '横坐标：' + str(int(x)) + ' 纵坐标: ' + str(int(y))
+        QMessageBox.about(self, '当前坐标', NowCorrdinate)
 
     @pyqtSlot()
     def on_zoomin_clicked(self):
