@@ -8,6 +8,7 @@ from PyQt_UI.CoordinateSelectUI import CoordinateSelect_Ui_dialog
 from PyQt_UI.HSV_Channel_Select import HSV_Ui_Dialog
 import scipy.io as io
 import PyQt_UI.utils as utils
+import PyQt_UI.algorithms as algorithms
 import cv2
 import sys
 import os
@@ -101,7 +102,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
     def saveBinaryImg(self):
         #保存（*.jpg *.gif *.png *.jpeg）图片，返回路径
-        image_file,_=QFileDialog.getSaveFileName(self,'保存二值化图片','C:\\','Image files (*.jpg *.gif *.png *.jpeg)')
+        image_file,_=QFileDialog.getSaveFileName(self,'保存二值化图片','../','Image files (*.jpg *.gif *.png *.jpeg)')
         #设置标签的图片
         #print(image_file)
         if(image_file==''):
@@ -113,35 +114,30 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         if not self.IsShrankFlag:
             if(self.OrImgPath==''):
                 return 0
-            img,binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
-            self.globalRectangle=img  #显示整个二值化之后的矩阵
-            print( "显示二值化之后的矩阵：%s",self.globalRectangle.shape)
-            img = QtGui.QPixmap(binaryImgPath).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.BinaryImgPath = binaryImgPath
+            # img,binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
+            img=cv2.imread(self.OrImgPath)
+            gray=algorithms.image_binarization(img,self.Threshold)
+            binaryImgPath =utils.SaveBinaryImage(gray,self.OrImgPath)
+            self.globalRectangle=gray  #显示整个二值化之后的矩阵
+            image = QtGui.QImage(gray, gray.shape[1], gray.shape[0], gray.shape[1], QtGui.QImage.Format_Indexed8)
+            # 加载图片,并自定义图片展示尺寸
+            img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(img)
+            self.BinaryImgPath = binaryImgPath
         else:
-            # img, binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
-            # self.curHandleLocalRectangle=self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x]
-
-            # rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
-            # # 将图片转化成Qt可读格式
-            # gray = cv2.cvtColor(rec_img, cv2.COLOR_BGR2GRAY)
             img = cv2.imread(self.OrImgPath)
             # 指定阈值 灰度二值化
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
             rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
-            gray = cv2.cvtColor(rec_img, cv2.COLOR_BGR2GRAY)
-            retval, dst = cv2.threshold(gray, self.Threshold, 255, cv2.THRESH_BINARY)
-            print('curusedThreshold:%s',self.Threshold)
-            blur = cv2.medianBlur(dst, 5)
-            self.curHandleLocalRectangle=blur
-            image = QtGui.QImage(blur, blur.shape[1], blur.shape[0], blur.shape[1], QtGui.QImage.Format_Indexed8)
-            # 加载图片,并自定义图片展示尺寸
+            gray = algorithms.image_binarization(rec_img, self.Threshold)
+            utils.SaveBinaryLocalityImage(gray, self.OrImgPath)
+            self.curHandleLocalRectangle=gray
+            # 将图像转换成QT能够识别的格式
+            image = QtGui.QImage(gray, gray.shape[1], gray.shape[0], gray.shape[1], QtGui.QImage.Format_Indexed8)
             img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(img)
 
     def setSingleThreshold(self):
-
         num, ok = QInputDialog.getInt(self, '输入阈值范围', '阈值范围0-255',value=self.Threshold,min=0,max=250)
         if ok and num:
             self.Threshold=num
@@ -180,47 +176,26 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             # 直接赋值或者copy.copy函数都是浅拷贝，实则还是指向同一内存地址，1个变量改变则所有变量全部改变。因此，推荐使用读取路径的方式
             # img = cv2.imread(self.OrImgPath)
             img = copy.deepcopy(self.CurHandleImage)
-            self.ChDiffExtract(img, d)  # 无需返回参数，已经在内存中发生修改
+            img = algorithms.ChDiffExtract(img, d)  # 无需返回参数，已经在内存中发生修改
             self.globalRectangle = img
-            # 默认将二值化的img图片写入原始图片的目录下
-            # content, tempfilename = os.path.split(self.OrImgPath)
-            # filename, extension = os.path.splitext(tempfilename)
-            # filename = filename + str('_ChDiffBinary') + extension
-            # filepath = os.path.join(content, filename)
-            # filepath = filepath.replace('\\', '/')
-            # cv2.imwrite(filepath, img)
-            #
-            # # 二值化图片路径存入成员变量
-            # self.BinaryImgPath = filepath
-
+            # 默认将处理后的的img图片写入ImgSave对应的目录下
+            utils.SaveRGBDiffImage(img,self.OrImgPath)
             # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
             img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] *3,
                                  QtGui.QImage.Format_RGB888)
-
         else:
             # 读取局部区域的子图，进行通道差值处理
             image = cv2.imread(self.OrImgPath)
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
             rec_img = image[n_start_y:n_end_y, n_start_x:n_end_x, :]
-
             print('已经进入局部处理函数', d)
-
             # 需要深度copy
             img = copy.deepcopy(rec_img)
-            self.ChDiffExtract(img, d)
+            img=algorithms.ChDiffExtract(img, d)
             self.curHandleLocalRectangle=rec_img
-            # 默认将二值化的img图片写入原始图片的目录下
-            # content, tempfilename = os.path.split(self.OrImgPath)
-            # filename, extension = os.path.splitext(tempfilename)
-            # filename = filename + str('_loclChDiffBinary') + extension
-            # filepath = os.path.join(content, filename)
-            # filepath = filepath.replace('\\', '/')
-            # cv2.imwrite(filepath, img)
-            # # 将局部的二值化图片路径，存入成员变量
-            # self.localImgPath = filepath
-
+            utils.SaveRGBDiffLocalityImage(img,self.OrImgPath)
             # 将图片转成BGR模式
             img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -229,87 +204,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         # 显示图片到label中
         self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
 
-        # # 子界面信号对应的槽函数
-        # def getChDiffData(self, diffCh):
-        #     print('diffch的值为：', diffCh)
-        #     d = int(diffCh)
-        #     if (self.OrImgPath == ''):
-        #         QMessageBox.warning(self, "提示", "未读取图层照片,请读取图片后再处理", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-        #         return 0
-        #     if (not self.IsShrankFlag):
-        #         print('进入全局处理函数')
-        #         # 读取原图的全局变量矩阵，或直接读取路径,
-        #         # 需要注意：如果使用全局变量CurHandleImage,则必须使用copy中的深层拷贝函数，不然在函数传递或处理中，导致原图的数组被修改
-        #         # 直接赋值或者copy.copy函数都是浅拷贝，实则还是指向同一内存地址，1个变量改变则所有变量全部改变。因此，推荐使用读取路径的方式
-        #         # img = cv2.imread(self.OrImgPath)
-        #         img = copy.deepcopy(self.CurHandleImage)
-        #         self.ChDiffExtract(img, d)  # 无需返回参数，已经在内存中发生修改
-        #
-        #         # 默认将二值化的img图片写入原始图片的目录下
-        #         content, tempfilename = os.path.split(self.OrImgPath)
-        #         filename, extension = os.path.splitext(tempfilename)
-        #         filename = filename + str('_ChDiffBinary') + extension
-        #         filepath = os.path.join(content, filename)
-        #         filepath = filepath.replace('\\', '/')
-        #         cv2.imwrite(filepath, img)
-        #
-        #         # 二值化图片路径存入成员变量
-        #         self.BinaryImgPath = filepath
-        #
-        #         # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
-        #         img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
-        #         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        #         QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],
-        #                              img_rgb.shape[1] * img_rgb.shape[2],
-        #                              QtGui.QImage.Format_RGB888)
-        #
-        #     else:
-        #         # 读取局部区域的子图，进行通道差值处理
-        #         print('已经进入局部处理函数', d)
-        #
-        #         # 需要深度copy
-        #         img = copy.deepcopy(self.curHandleLocalRectangle)
-        #         self.ChDiffExtract(img, d)
-        #         # 默认将二值化的img图片写入原始图片的目录下
-        #         content, tempfilename = os.path.split(self.OrImgPath)
-        #         filename, extension = os.path.splitext(tempfilename)
-        #         filename = filename + str('_loclChDiffBinary') + extension
-        #         filepath = os.path.join(content, filename)
-        #         filepath = filepath.replace('\\', '/')
-        #         cv2.imwrite(filepath, img)
-        #         # 将局部的二值化图片路径，存入成员变量
-        #         self.localImgPath = filepath
-        #
-        #         # 将图片转成BGR模式
-        #         img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
-        #         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        #         QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],
-        #                              img_rgb.shape[1] * img_rgb.shape[2],
-        #                              QtGui.QImage.Format_RGB888)
-        #     # 显示图片到label中
-        #     self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
-
-    #通道差值处理函数
-    def ChDiffExtract(self,img,d):
-        # 遍历方法太慢，最好不要使用
-        # for i in range(img.shape[0]):
-        #     for j in range(img.shape[1]):
-
-        # 按照第三维取最大数组和最小数组，用于计算标志位
-        max_RGB = np.amax(img, axis=2)
-        min_RGB = np.amin(img, axis=2)
-        # 分别获取三个标志位矩阵，将其相乘,得到最终的标志位矩阵
-        diff_RGB = ((max_RGB - min_RGB) < d)
-        max_RGB = (max_RGB < 150)
-        min_RGB = (min_RGB > 50)
-        rec_RGB = (diff_RGB * max_RGB * min_RGB)
-        # 不能用标志矩阵直接和img三维数组相乘，与numpy数组存在一定差异
-        # img=(img*diff_RGB)
-        img[:, :, 0] = img[:, :, 0] * rec_RGB
-        img[:, :, 1] = img[:, :, 1] * rec_RGB
-        img[:, :, 2] = img[:, :, 2] * rec_RGB
-        # img[img > 0] = 255
-        return img  #数组参数，已经在内存中修改，返回与否不影响了
 
     def closeWindow(self):
         self.regionSplitWindow.close()
@@ -491,15 +385,13 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         elif 3==self.globalRectangle.ndim:
             cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', self.globalRectangle)
             # 将图片转化成Qt可读格式
-            image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1] * 3,
-                                 QtGui.QImage.Format_RGB888)
+            image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1] * 3,QtGui.QImage.Format_RGB888)
             # 加载图片,并自定义图片展示尺寸
             image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(image)
             print('RGB或者其他图像')
         else:
             print('anoter type')
-
 
 
     def localCover(self):
@@ -537,24 +429,9 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             image = cv2.imread(self.OrImgPath)
             [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
             [v_1_Start, v_1_End, v_2_Start, v_2_End]]= self.HSVChannelUI.getHSVData()
-            HSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-            H_Channel_Flag=((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_1_End*180)) | ((h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0]< h_2_End*180))
-            S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_1_End * 255) | (s_2_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_2_End * 255)
-            V_Channel_Flag = (v_1_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_1_End * 255) | ((v_2_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_2_End * 255))
-
-            # hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
-            # hsv_flag_v =  HSV[:,:, 2] > 0.6*255
-            # num_flag = np.array(~(hsv_flag_h | hsv_flag_v), dtype='uint8')
-
-            num_flag_2=H_Channel_Flag & V_Channel_Flag & S_Channel_Flag
-            num_flag=np.array(num_flag_2, dtype='uint8')
-            contextflag=np.expand_dims(num_flag, axis=2)
-            HSV=HSV*contextflag
-
-            new_image=cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
+            new_image= algorithms.HSV_Line_Tract(image,h_1_Start, h_1_End, h_2_Start, h_2_End,s_1_Start, s_1_End, s_2_Start, s_2_End,v_1_Start, v_1_End, v_2_Start, v_2_End)
             self.globalRectangle=new_image
-            cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', new_image)
+            utils.SaveHSVTractImage(new_image,self.OrImgPath)
             # 将图片转化成Qt可读格式
             image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
             # 加载图片,并自定义图片展示尺寸
@@ -564,29 +441,13 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             image = cv2.imread(self.OrImgPath)
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
             rec_img = image[n_start_y:n_end_y, n_start_x:n_end_x, :]
-            HSV = cv2.cvtColor(rec_img, cv2.COLOR_BGR2HSV)
 
             [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
              [v_1_Start, v_1_End, v_2_Start, v_2_End]] = self.HSVChannelUI.getHSVData()
-            H_Channel_Flag = ((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0] < h_1_End * 180)) | (
-                        (h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0] < h_2_End * 180))
-            S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_1_End * 255) | (
-                        s_2_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_2_End * 255)
-            V_Channel_Flag = (v_1_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_1_End * 255) | (
-                        (v_2_Start * 255 <= HSV[:, :, 2]) & (HSV[:, :, 2] < v_2_End * 255))
-
-            # hsv_flag_h = (HSV[:,:, 0] > 0.5*180) & (HSV[:,:, 0] < 0.56*180)
-            # hsv_flag_v =  HSV[:,:, 2] > 0.6*255
-            # num_flag = np.array(~(hsv_flag_h | hsv_flag_v), dtype='uint8')
-
-            num_flag_2 = H_Channel_Flag & V_Channel_Flag & S_Channel_Flag
-            num_flag = np.array(num_flag_2, dtype='uint8')
-            contextflag = np.expand_dims(num_flag, axis=2)
-            HSV = HSV * contextflag
-
-            new_image = cv2.cvtColor(HSV, cv2.COLOR_HSV2RGB)
+            new_image = algorithms.HSV_Line_Tract(rec_img, h_1_Start, h_1_End, h_2_Start, h_2_End, s_1_Start, s_1_End,
+                                                  s_2_Start, s_2_End, v_1_Start, v_1_End, v_2_Start, v_2_End)
             self.curHandleLocalRectangle = new_image
-            cv2.imwrite('../images/ImgSave/HSV_Changled_LocalRange.jpg', new_image)
+            utils.SaveHSVTractLocalityImage(new_image, self.OrImgPath)
             # 将图片转化成Qt可读格式
             image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1] * 3,
                                  QtGui.QImage.Format_RGB888)

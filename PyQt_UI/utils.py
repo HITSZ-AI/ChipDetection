@@ -1,3 +1,7 @@
+import os
+import cv2
+
+
 def is_number(s):
     if s == '':
         return False
@@ -79,3 +83,79 @@ def CreateTxtFileHead(imgPath):
         file_handle.write('         ')
         file_handle.write('\n')
     return 0
+
+def SaveBinaryImage(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_binary') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
+    return filepath
+
+def SaveBinaryLocalityImage(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_binary_locality') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
+    return filepath
+
+def SaveRGBDiffImage(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_RGBDiff') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
+    return filepath
+
+def SaveRGBDiffLocalityImage(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_RGBDiff_locality') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
+    return filepath
+
+def SaveHSVTractImage(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_HSCTract') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
+    return filepath
+
+def SaveHSVTractLocalityImage(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_HSCTract_locality') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
+    return filepath
+
+def Save_RGB_Image(image,path):
+    content, tempfilename = os.path.split(path)
+    # 拼接文件名
+    filename, extension = os.path.splitext(tempfilename)
+    filename = filename + str('_binary') + extension
+    filepath = os.path.join("../images/ImgSave", filename)
+    filepath = filepath.replace('\\', '/')
+    print(filepath)
+    cv2.imwrite(filepath, image)
