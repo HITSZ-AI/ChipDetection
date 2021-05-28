@@ -116,24 +116,26 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
                 return 0
             # img,binaryImgPath = nl.image_binarization(self.OrImgPath, self.Threshold)
             img=cv2.imread(self.OrImgPath)
-            gray=algorithms.image_binarization(img,self.Threshold)
-            binaryImgPath =utils.SaveBinaryImage(gray,self.OrImgPath)
+            save_gray=algorithms.image_binarization(img,self.Threshold)
+            binaryImgPath =utils.SaveBinaryImage(save_gray,self.OrImgPath)
+            gray=cv2.imread(binaryImgPath) #保存只有再读入，这样就可以统一处理
             self.globalRectangle=gray  #显示整个二值化之后的矩阵
-            image = QtGui.QImage(gray, gray.shape[1], gray.shape[0], gray.shape[1], QtGui.QImage.Format_Indexed8)
+            image = QtGui.QImage(gray.data, gray.shape[1], gray.shape[0], gray.shape[1]*3,  QtGui.QImage.Format_RGB888)
             # 加载图片,并自定义图片展示尺寸
-            img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(img)
+            cur_img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
+            self.label_BinaryImg.setPixmap(cur_img)
             self.BinaryImgPath = binaryImgPath
         else:
             img = cv2.imread(self.OrImgPath)
             # 指定阈值 灰度二值化
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
             rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
-            gray = algorithms.image_binarization(rec_img, self.Threshold)
-            utils.SaveBinaryLocalityImage(gray, self.OrImgPath)
+            save_gray = algorithms.image_binarization(rec_img, self.Threshold)
+            binaryImgLocalityPath=utils.SaveBinaryLocalityImage(save_gray, self.OrImgPath)
+            gray=cv2.imread(binaryImgLocalityPath)
             self.curHandleLocalRectangle=gray
             # 将图像转换成QT能够识别的格式
-            image = QtGui.QImage(gray, gray.shape[1], gray.shape[0], gray.shape[1], QtGui.QImage.Format_Indexed8)
+            image = QtGui.QImage(gray.data, gray.shape[1], gray.shape[0], gray.shape[1]*3,  QtGui.QImage.Format_RGB888)
             img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(img)
 
@@ -383,13 +385,12 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.label_BinaryImg.setPixmap(img)
             print('二值化图像')
         elif 3==self.globalRectangle.ndim:
-            cv2.imwrite('../images/ImgSave/HSV_Changled.jpg', self.globalRectangle)
             # 将图片转化成Qt可读格式
             image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1] * 3,QtGui.QImage.Format_RGB888)
             # 加载图片,并自定义图片展示尺寸
             image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(image)
-            print('RGB或者其他图像')
+            print('RGB或HSV图像')
         else:
             print('anoter type')
 
@@ -434,7 +435,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             utils.SaveHSVTractImage(new_image,self.OrImgPath)
             # 将图片转化成Qt可读格式
             image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
-            # 加载图片,并自定义图片展示尺寸
             image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(image)
         else:
@@ -451,7 +451,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             # 将图片转化成Qt可读格式
             image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1] * 3,
                                  QtGui.QImage.Format_RGB888)
-            # 加载图片,并自定义图片展示尺寸
             image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(image)
             print('这是缩放的图像')
@@ -475,6 +474,9 @@ class regionSplitWindow(QDialog,Ui_Dialog):
         #传递多个参数，用下列代码
         #self.signal_diffCh.emit(str(self.comboBox_bigCh.currentIndex()),
         #                      str(self.comboBox_smallCh.currentIndex()),self.lineEdit_diffCh.text())
+        if(not utils.is_number(self.lineEdit_diffCh.text())):
+            QMessageBox.information(self, '请重新输入参数', '请输入数字', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            return
         self.signal_diffCh.emit(self.lineEdit_diffCh.text())
 
 #子界面类  坐标选择

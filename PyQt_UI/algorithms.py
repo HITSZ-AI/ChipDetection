@@ -10,7 +10,12 @@ def image_binarization(image,Threshold):
     #retval, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     #中值去噪，也称为椒盐去噪
     blur = cv2.medianBlur(dst, 5)
-    return blur
+    #返回三通道的灰度图像
+    new_image=np.zeros((blur.shape[0],blur.shape[1],3))
+    new_image[:, :, 0] = blur
+    new_image[:, :, 1] = blur
+    new_image[:, :, 2] = blur
+    return new_image
 
 
 # 通道差值处理函数
