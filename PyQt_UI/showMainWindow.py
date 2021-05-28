@@ -59,6 +59,8 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.cor_Input.triggered.connect(self.showCoordianteInputDialog)
         self.img_Recover.triggered.connect(self.showRecoverImage)
         self.local_Cover.triggered.connect(self.localCover)
+        self.single_Threshold.triggered.connect(self.setSingleThreshold)
+        self.single_Threshold_2.triggered.connect(self.setSingleThreshold)
 
         # SeclectCoordinator
         self.CoordinateSelectDialog = showCorrdinateDialog()
@@ -72,10 +74,15 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.Handle_HSV_M2.triggered.connect(self.showHSVChannelInputDialog)
         self.HSVChannelUI = showHSV_Channel_SelectUI()
 
-    def readImg(self):
+        #先把单一阈值的那个条隐藏可见
+        self.label_SingleThre.setVisible(False)
+        self.slider_BinaryThre.setVisible(False)
+        self.button_ThreCon.setVisible(False)
+        self.label_ThresholdValue.setVisible(False)
 
+    def readImg(self):
         # 从指定目录打开图片（*.jpg *.gif *.png *.jpeg），返回路径
-        image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', 'C:\\', 'Image files (*.jpg *.gif *.png *.jpeg)')
+        image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', '../', 'Image files (*.jpg *.gif *.png *.jpeg)')
         # 缩放图片 设置标签的图片
         jpg = QtGui.QPixmap(image_file).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         if(image_file==''):
@@ -86,10 +93,11 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.CurHandleImage = cv2.imread(image_file)
         self.label_OrImg.setPixmap(jpg)
         self.IsShrankFlag = False
+
         self.curHandleLocalRectangle = cv2.imread(image_file) # 当前正处理的局部矩阵
         self.globalRectangle = cv2.imread(image_file)  # 全局矩阵
-        print('globalRectangle.shape:%s',self.globalRectangle.shape)
-        print('curHandleLocalRectangle.shape:%s', self.curHandleLocalRectangle.shape)
+        # print('globalRectangle.shape:%s',self.globalRectangle.shape)
+        # print('curHandleLocalRectangle.shape:%s', self.curHandleLocalRectangle.shape)
 
     def saveBinaryImg(self):
         #保存（*.jpg *.gif *.png *.jpeg）图片，返回路径
@@ -132,6 +140,13 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(img)
 
+    def setSingleThreshold(self):
+
+        num, ok = QInputDialog.getInt(self, '输入阈值范围', '阈值范围0-255',value=self.Threshold,min=0,max=250)
+        if ok and num:
+            self.Threshold=num
+            self.binaryImg()
+
     def getThreshold(self):
         return self.Threshold
 
@@ -151,62 +166,128 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         # if ok and num:
         #     self.GetIntlineEdit.setText(str(num))
 
-    #子界面信号对应的槽函数
-    def getChDiffData(self,diffCh):
-        print('diffch的值为：',diffCh)
-        d=int(diffCh)
-        if(self.OrImgPath==''):
+    # 子界面信号对应的槽函数
+    def getChDiffData(self, diffCh):
+        print('diffch的值为：', diffCh)
+        d = int(diffCh)
+        if (self.OrImgPath == ''):
             QMessageBox.warning(self, "提示", "未读取图层照片,请读取图片后再处理", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             return 0
-        if(not self.IsShrankFlag):
+        if (not self.IsShrankFlag):
             print('进入全局处理函数')
-            #读取原图的全局变量矩阵，或直接读取路径,
-            #需要注意：如果使用全局变量CurHandleImage,则必须使用copy中的深层拷贝函数，不然在函数传递或处理中，导致原图的数组被修改
-            #直接赋值或者copy.copy函数都是浅拷贝，实则还是指向同一内存地址，1个变量改变则所有变量全部改变。因此，推荐使用读取路径的方式
-            #img = cv2.imread(self.OrImgPath)
-            img=copy.deepcopy(self.CurHandleImage)
-            self.ChDiffExtract(img, d)  #无需返回参数，已经在内存中发生修改
-
-            #默认将二值化的img图片写入原始图片的目录下
-            content, tempfilename = os.path.split(self.OrImgPath)
-            filename, extension = os.path.splitext(tempfilename)
-            filename = filename + str('_ChDiffBinary') + extension
-            filepath = os.path.join(content, filename)
-            filepath = filepath.replace('\\', '/')
-            cv2.imwrite(filepath,img)
-
-            #二值化图片路径存入成员变量
-            self.BinaryImgPath=filepath
+            # 读取原图的全局变量矩阵，或直接读取路径,
+            # 需要注意：如果使用全局变量CurHandleImage,则必须使用copy中的深层拷贝函数，不然在函数传递或处理中，导致原图的数组被修改
+            # 直接赋值或者copy.copy函数都是浅拷贝，实则还是指向同一内存地址，1个变量改变则所有变量全部改变。因此，推荐使用读取路径的方式
+            # img = cv2.imread(self.OrImgPath)
+            img = copy.deepcopy(self.CurHandleImage)
+            self.ChDiffExtract(img, d)  # 无需返回参数，已经在内存中发生修改
+            self.globalRectangle = img
+            # 默认将二值化的img图片写入原始图片的目录下
+            # content, tempfilename = os.path.split(self.OrImgPath)
+            # filename, extension = os.path.splitext(tempfilename)
+            # filename = filename + str('_ChDiffBinary') + extension
+            # filepath = os.path.join(content, filename)
+            # filepath = filepath.replace('\\', '/')
+            # cv2.imwrite(filepath, img)
+            #
+            # # 二值化图片路径存入成员变量
+            # self.BinaryImgPath = filepath
 
             # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
-            img=cv2.resize(img,(self.label_BinaryImg.height(), self.label_BinaryImg.width()))
+            img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],img_rgb.shape[1] * img_rgb.shape[2],
-                                      QtGui.QImage.Format_RGB888)
+            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] *3,
+                                 QtGui.QImage.Format_RGB888)
 
         else:
             # 读取局部区域的子图，进行通道差值处理
-            print('已经进入局部处理函数',d)
-            #需要深度copy
-            img=copy.deepcopy(self.curHandleLocalRectangle)
+            image = cv2.imread(self.OrImgPath)
+            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+            rec_img = image[n_start_y:n_end_y, n_start_x:n_end_x, :]
+
+            print('已经进入局部处理函数', d)
+
+            # 需要深度copy
+            img = copy.deepcopy(rec_img)
             self.ChDiffExtract(img, d)
+            self.curHandleLocalRectangle=rec_img
             # 默认将二值化的img图片写入原始图片的目录下
-            content, tempfilename = os.path.split(self.OrImgPath)
-            filename, extension = os.path.splitext(tempfilename)
-            filename = filename + str('_loclChDiffBinary') + extension
-            filepath = os.path.join(content, filename)
-            filepath = filepath.replace('\\', '/')
-            cv2.imwrite(filepath, img)
-            # 将局部的二值化图片路径，存入成员变量
-            self.localImgPath = filepath
+            # content, tempfilename = os.path.split(self.OrImgPath)
+            # filename, extension = os.path.splitext(tempfilename)
+            # filename = filename + str('_loclChDiffBinary') + extension
+            # filepath = os.path.join(content, filename)
+            # filepath = filepath.replace('\\', '/')
+            # cv2.imwrite(filepath, img)
+            # # 将局部的二值化图片路径，存入成员变量
+            # self.localImgPath = filepath
 
             # 将图片转成BGR模式
             img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] * img_rgb.shape[2],
+            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] * 3,
                                  QtGui.QImage.Format_RGB888)
         # 显示图片到label中
         self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
+
+        # # 子界面信号对应的槽函数
+        # def getChDiffData(self, diffCh):
+        #     print('diffch的值为：', diffCh)
+        #     d = int(diffCh)
+        #     if (self.OrImgPath == ''):
+        #         QMessageBox.warning(self, "提示", "未读取图层照片,请读取图片后再处理", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        #         return 0
+        #     if (not self.IsShrankFlag):
+        #         print('进入全局处理函数')
+        #         # 读取原图的全局变量矩阵，或直接读取路径,
+        #         # 需要注意：如果使用全局变量CurHandleImage,则必须使用copy中的深层拷贝函数，不然在函数传递或处理中，导致原图的数组被修改
+        #         # 直接赋值或者copy.copy函数都是浅拷贝，实则还是指向同一内存地址，1个变量改变则所有变量全部改变。因此，推荐使用读取路径的方式
+        #         # img = cv2.imread(self.OrImgPath)
+        #         img = copy.deepcopy(self.CurHandleImage)
+        #         self.ChDiffExtract(img, d)  # 无需返回参数，已经在内存中发生修改
+        #
+        #         # 默认将二值化的img图片写入原始图片的目录下
+        #         content, tempfilename = os.path.split(self.OrImgPath)
+        #         filename, extension = os.path.splitext(tempfilename)
+        #         filename = filename + str('_ChDiffBinary') + extension
+        #         filepath = os.path.join(content, filename)
+        #         filepath = filepath.replace('\\', '/')
+        #         cv2.imwrite(filepath, img)
+        #
+        #         # 二值化图片路径存入成员变量
+        #         self.BinaryImgPath = filepath
+        #
+        #         # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
+        #         img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
+        #         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        #         QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],
+        #                              img_rgb.shape[1] * img_rgb.shape[2],
+        #                              QtGui.QImage.Format_RGB888)
+        #
+        #     else:
+        #         # 读取局部区域的子图，进行通道差值处理
+        #         print('已经进入局部处理函数', d)
+        #
+        #         # 需要深度copy
+        #         img = copy.deepcopy(self.curHandleLocalRectangle)
+        #         self.ChDiffExtract(img, d)
+        #         # 默认将二值化的img图片写入原始图片的目录下
+        #         content, tempfilename = os.path.split(self.OrImgPath)
+        #         filename, extension = os.path.splitext(tempfilename)
+        #         filename = filename + str('_loclChDiffBinary') + extension
+        #         filepath = os.path.join(content, filename)
+        #         filepath = filepath.replace('\\', '/')
+        #         cv2.imwrite(filepath, img)
+        #         # 将局部的二值化图片路径，存入成员变量
+        #         self.localImgPath = filepath
+        #
+        #         # 将图片转成BGR模式
+        #         img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
+        #         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        #         QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0],
+        #                              img_rgb.shape[1] * img_rgb.shape[2],
+        #                              QtGui.QImage.Format_RGB888)
+        #     # 显示图片到label中
+        #     self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
 
     #通道差值处理函数
     def ChDiffExtract(self,img,d):
@@ -227,7 +308,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         img[:, :, 0] = img[:, :, 0] * rec_RGB
         img[:, :, 1] = img[:, :, 1] * rec_RGB
         img[:, :, 2] = img[:, :, 2] * rec_RGB
-        img[img > 0] = 255
+        # img[img > 0] = 255
         return img  #数组参数，已经在内存中修改，返回与否不影响了
 
     def closeWindow(self):
@@ -302,7 +383,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         size_y = img_b.shape[0]  # 像数行数
         boundary = 10
         count = 0
-        self.CreateTxtFileHead(imgPath)
+        utils.CreateTxtFileHead(imgPath)
         rec_flag = np.zeros([size_y, size_x])  # 矩阵标志位，标志当前像素点是否被之前的矩阵圈住
         for row_index in range(boundary, size_y - boundary, 1):
             for col_index in range(boundary, size_x - boundary, 1):
@@ -318,59 +399,11 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
                     if (col_index == col_end):
                         continue
                     else:
-                        self.CreateTxtFile(imgPath,(-1 * row_index), col_index, col_end)
+                        utils.CreateTxtFile(imgPath,(-1 * row_index), col_index, col_end)
                         count = count + 1
-        self.CreateTxtFileTail(imgPath)
+        utils.CreateTxtFileTail(imgPath)
         QMessageBox.information(self, "提示", "已成功导出TXT版图数据",
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-        return 0
-
-    def CreateTxtFile(self,imgPath,row_index, col_index, col_end):
-
-        vertex1 = str(col_index) + ':' + str(row_index)
-        vertex2 = str(col_end) + ':' + str(row_index)
-        with open(imgPath, 'a') as file_handle:
-            # file_handle.write('BOUNDARY')  # 开始写入数据
-            file_handle.write('\n')  # 自动换行
-            file_handle.write('PATH\n')
-            file_handle.write('LAYER 50\n')
-            file_handle.write('DATATYPE 0\n')
-            # 给甲方的时候 WIDTH=10 ,WIDTH=1代表0.002um 一个像素点对应0.02um
-            file_handle.write('WIDTH 1\n')
-            file_handle.write('XY' + ' ' + vertex1)  # 左上角顶点
-            file_handle.write('\n')
-            file_handle.write(vertex2)  # 右上角顶点
-            file_handle.write('\n')
-            file_handle.write('ENDEL')
-            file_handle.write('\n')
-        return 0
-
-    def CreateTxtFileHead(self,imgPath):
-        with open(imgPath, 'w') as file_handle:
-            file_handle.write('HEADER 600 ')  # 开始写入数据
-            file_handle.write('\n')  # 自动换行
-            file_handle.write('BGNLIB 3/10/2021 17:35:23 3/10/2021 17:35:23 ')
-            file_handle.write('\n')
-            file_handle.write('LIBNAME DEFAULT')
-            file_handle.write('\n')
-            file_handle.write('UNITS 0.001 1e-009')
-            file_handle.write('\n')
-            file_handle.write('         ')
-            file_handle.write('\n')
-            file_handle.write('BGNSTR 3/10/2021 17:35:23 3/10/2021 17:35:23 ')
-            file_handle.write('\n')
-            file_handle.write('STRNAME VIA1')
-            file_handle.write('\n')
-            file_handle.write('         ')
-            file_handle.write('\n')
-        return 0
-
-    def CreateTxtFileTail(self,imgPath):
-        with open(imgPath, 'a') as file_handle:
-            file_handle.write('ENDSTR')  # 开始写入数据
-            file_handle.write('\n')  # 自动换行
-            file_handle.write('ENDLIB')
-            file_handle.write('\n')
         return 0
 
     def getPos(self, event):
@@ -470,16 +503,20 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
 
     def localCover(self):
-        n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
-        # 同时恢复右边的图像
-        if 2 == self.globalRectangle.ndim:
-             self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x]=self.curHandleLocalRectangle
-        elif 3==self.globalRectangle.ndim:
-             self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x,:] = self.curHandleLocalRectangle
-        else:
-            print('程序有问题，出错！！！')
-        self.showRecoverImage()
-        reply =QMessageBox.information(self, '局部覆盖', '局部覆盖完成', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if (self.OrImgPath == ''):
+            return
+        if self.IsShrankFlag:
+            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+            # 同时恢复右边的图像
+            if 2 == self.globalRectangle.ndim:
+                 self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x]=self.curHandleLocalRectangle
+            elif 3==self.globalRectangle.ndim:
+                 self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x,:] = self.curHandleLocalRectangle
+            else:
+                print('程序有问题，出错！！！')
+            self.showRecoverImage()
+            reply =QMessageBox.information(self, '局部覆盖', '局部覆盖完成', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            self.IsShrankFlag=False
 
 
     def showHSVChannelInputDialog(self):
@@ -524,10 +561,13 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
             self.label_BinaryImg.setPixmap(image)
         else:
+            image = cv2.imread(self.OrImgPath)
+            n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
+            rec_img = image[n_start_y:n_end_y, n_start_x:n_end_x, :]
+            HSV = cv2.cvtColor(rec_img, cv2.COLOR_BGR2HSV)
+
             [[h_1_Start, h_1_End, h_2_Start, h_2_End], [s_1_Start, s_1_End, s_2_Start, s_2_End],
              [v_1_Start, v_1_End, v_2_Start, v_2_End]] = self.HSVChannelUI.getHSVData()
-            HSV = cv2.cvtColor(self.curHandleLocalRectangle, cv2.COLOR_BGR2HSV)
-
             H_Channel_Flag = ((h_1_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0] < h_1_End * 180)) | (
                         (h_2_Start * 180 <= HSV[:, :, 0]) & (HSV[:, :, 0] < h_2_End * 180))
             S_Channel_Flag = (s_1_Start * 255 <= HSV[:, :, 1]) & (HSV[:, :, 1] < s_1_End * 255) | (

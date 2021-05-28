@@ -29,3 +29,53 @@ def converStr2Int(s):
         return int(float(s))
     else:
         return -1
+
+
+def CreateTxtFileTail(imgPath):
+    with open(imgPath, 'a') as file_handle:
+        file_handle.write('ENDSTR')  # 开始写入数据
+        file_handle.write('\n')  # 自动换行
+        file_handle.write('ENDLIB')
+        file_handle.write('\n')
+    return 0
+
+
+def CreateTxtFile(imgPath,row_index, col_index, col_end):
+
+    vertex1 = str(col_index) + ':' + str(row_index)
+    vertex2 = str(col_end) + ':' + str(row_index)
+    with open(imgPath, 'a') as file_handle:
+        # file_handle.write('BOUNDARY')  # 开始写入数据
+        file_handle.write('\n')  # 自动换行
+        file_handle.write('PATH\n')
+        file_handle.write('LAYER 50\n')
+        file_handle.write('DATATYPE 0\n')
+        # 给甲方的时候 WIDTH=10 ,WIDTH=1代表0.002um 一个像素点对应0.02um
+        file_handle.write('WIDTH 1\n')
+        file_handle.write('XY' + ' ' + vertex1)  # 左上角顶点
+        file_handle.write('\n')
+        file_handle.write(vertex2)  # 右上角顶点
+        file_handle.write('\n')
+        file_handle.write('ENDEL')
+        file_handle.write('\n')
+    return 0
+
+def CreateTxtFileHead(imgPath):
+    with open(imgPath, 'w') as file_handle:
+        file_handle.write('HEADER 600 ')  # 开始写入数据
+        file_handle.write('\n')  # 自动换行
+        file_handle.write('BGNLIB 3/10/2021 17:35:23 3/10/2021 17:35:23 ')
+        file_handle.write('\n')
+        file_handle.write('LIBNAME DEFAULT')
+        file_handle.write('\n')
+        file_handle.write('UNITS 0.001 1e-009')
+        file_handle.write('\n')
+        file_handle.write('         ')
+        file_handle.write('\n')
+        file_handle.write('BGNSTR 3/10/2021 17:35:23 3/10/2021 17:35:23 ')
+        file_handle.write('\n')
+        file_handle.write('STRNAME VIA1')
+        file_handle.write('\n')
+        file_handle.write('         ')
+        file_handle.write('\n')
+    return 0
