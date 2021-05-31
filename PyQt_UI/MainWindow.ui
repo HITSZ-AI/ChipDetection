@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1029</width>
+    <width>1110</width>
     <height>645</height>
    </rect>
   </property>
@@ -14,252 +14,115 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QPushButton" name="button_AmplifyBinaryImg">
-    <property name="geometry">
-     <rect>
-      <x>507</x>
-      <y>561</y>
-      <width>75</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>50</width>
-      <height>15</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>100</width>
-      <height>30</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>放大</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="button_AmplifyOrImg">
-    <property name="geometry">
-     <rect>
-      <x>9</x>
-      <y>561</y>
-      <width>75</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>50</width>
-      <height>15</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>100</width>
-      <height>50</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>放大</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="button_LessenOrImg">
-    <property name="geometry">
-     <rect>
-      <x>115</x>
-      <y>561</y>
-      <width>75</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>50</width>
-      <height>15</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>100</width>
-      <height>50</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>缩小</string>
-    </property>
-   </widget>
-   <widget class="QSlider" name="slider_BinaryThre">
-    <property name="geometry">
-     <rect>
-      <x>115</x>
-      <y>9</y>
-      <width>250</width>
-      <height>22</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>250</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>300</width>
-      <height>16777215</height>
-     </size>
-    </property>
-    <property name="orientation">
-     <enum>Qt::Horizontal</enum>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_SingleThre">
-    <property name="geometry">
-     <rect>
-      <x>9</x>
-      <y>9</y>
-      <width>72</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>50</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>100</width>
-      <height>16777215</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>单一阈值调节</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_ThresholdValue">
-    <property name="geometry">
-     <rect>
-      <x>421</x>
-      <y>9</y>
-      <width>18</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>80</width>
-      <height>16777215</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>127</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="button_lessenBinaryImg">
-    <property name="geometry">
-     <rect>
-      <x>613</x>
-      <y>561</y>
-      <width>75</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>50</width>
-      <height>15</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>100</width>
-      <height>30</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>缩小</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="button_ThreCon">
-    <property name="geometry">
-     <rect>
-      <x>507</x>
-      <y>9</y>
-      <width>75</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>确定</string>
-    </property>
-   </widget>
-   <widget class="QWidget" name="layoutWidget">
-    <property name="geometry">
-     <rect>
-      <x>9</x>
-      <y>8</y>
-      <width>1001</width>
-      <height>531</height>
-     </rect>
-    </property>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QLabel" name="label_OrImg">
-       <property name="minimumSize">
-        <size>
-         <width>381</width>
-         <height>301</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>1000</width>
-         <height>750</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>原图显示区域，请点击开始选择需要处理的图像</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="Line" name="line">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_BinaryImg">
-       <property name="minimumSize">
-        <size>
-         <width>381</width>
-         <height>301</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>1000</width>
-         <height>750</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>效果图</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0" colspan="5">
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QGraphicsView" name="BinaryImgView">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>1</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGraphicsView" name="OrImgView">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>1</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="1" column="4">
+     <widget class="QPushButton" name="button_lessenBinaryImg">
+      <property name="minimumSize">
+       <size>
+        <width>50</width>
+        <height>15</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>100</width>
+        <height>30</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>缩小</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="3">
+     <widget class="QPushButton" name="button_AmplifyBinaryImg">
+      <property name="minimumSize">
+       <size>
+        <width>50</width>
+        <height>15</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>100</width>
+        <height>30</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>放大</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QPushButton" name="button_AmplifyOrImg">
+      <property name="minimumSize">
+       <size>
+        <width>50</width>
+        <height>15</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>100</width>
+        <height>50</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>放大</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QPushButton" name="button_LessenOrImg">
+      <property name="minimumSize">
+       <size>
+        <width>50</width>
+        <height>15</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>100</width>
+        <height>50</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>缩小</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1029</width>
+     <width>1110</width>
      <height>23</height>
     </rect>
    </property>

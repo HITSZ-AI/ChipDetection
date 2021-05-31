@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon,QImage, QPixmap
 from PyQt5.QtCore import QObject , pyqtSignal
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt_UI.MainWindow  import Ui_MainWindow
@@ -27,6 +27,17 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.setWindowIcon(icon)
 
         # 成员变量
+        self.OrImgitem = QGraphicsPixmapItem()  # 创建像素图元
+        self.OrImgscene = QGraphicsScene()  # 创建场景
+        self.OrImgzoomscale = 1  # 图片放缩尺度
+
+        # 创建右侧二值化图的像素图元和场景
+        self.BinaryImgitem = QGraphicsPixmapItem()  # 创建像素图元
+        self.BinaryImgscene = QGraphicsScene()  # 创建场景
+        self.BinaryImgzoomscale = 1  # 图片放缩尺度
+
+        self.OrImgitem.mousePressEvent = self.getOrImgPos
+        self.BinaryImgitem.mousePressEvent = self.getBinaryImgPos
         self.Threshold = 127
         self.OrImgPath = ''
         self.BinaryImgPath = ''
@@ -37,20 +48,22 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.smallCh=1   #G通道
         self.curHandleLocalRectangle=np.zeros((1,1,1)) #当前正处理的局部矩阵
         self.globalRectangle=np.zeros((1,1,1))         #读取全局矩阵
+        self.golobalBinary=False  #用于判断当前是否已经全局二值化
+        self.localBinary=False    #用于判断当前是否已经局部二值化
 
         #初始化部分界面（单阈值图标）
-        self.slider_BinaryThre.setMinimum(0)
-        self.slider_BinaryThre.setMaximum(255)
-        self.slider_BinaryThre.setValue(127)
-        self.slider_BinaryThre.setSingleStep(1)
+        # self.slider_BinaryThre.setMinimum(0)
+        # self.slider_BinaryThre.setMaximum(255)
+        # self.slider_BinaryThre.setValue(127)
+        # self.slider_BinaryThre.setSingleStep(1)
 
         # 实例化子界面,用于显示子界面
         self.regionSplitWindow = regionSplitWindow()
 
         # 绑定槽函数
         self.openImg.triggered.connect(self.readImg)
-        self.slider_BinaryThre.valueChanged.connect(self.threshold_change)
-        self.button_ThreCon.clicked.connect(self.binaryImg)  #确定二值化按钮
+        #self.slider_BinaryThre.valueChanged.connect(self.threshold_change)
+        #self.button_ThreCon.clicked.connect(self.binaryImg)  #确定二值化按钮
         self.saveImg.triggered.connect(self.saveBinaryImg)
         self.channel_Diff.triggered.connect(self.channel_Difference)
         self.channel_Diff_2.triggered.connect(self.channel_Difference)
@@ -68,33 +81,37 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.IsShrankFlag = False  # 判断当前界面左侧，显示的图是否为局部的小图
 
         #self.curHandleImagepath = ''  # 使用全局变量保存当前正在处理的整个大图，与OrImgPath参数功能重叠，注释掉
-        self.label_OrImg.mousePressEvent = self.getPos
-
+        #self.label_OrImg.mousePressEvent = self.getPos
         # HSV_Channel_SelectUI
         self.Handle_HSV_M1.triggered.connect(self.showHSVChannelInputDialog)
         self.Handle_HSV_M2.triggered.connect(self.showHSVChannelInputDialog)
         self.HSVChannelUI = showHSV_Channel_SelectUI()
 
-        #先把单一阈值的那个条隐藏可见
-        self.label_SingleThre.setVisible(False)
-        self.slider_BinaryThre.setVisible(False)
-        self.button_ThreCon.setVisible(False)
-        self.label_ThresholdValue.setVisible(False)
 
     def readImg(self):
         # 从指定目录打开图片（*.jpg *.gif *.png *.jpeg），返回路径
         image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', '../', 'Image files (*.jpg *.gif *.png *.jpeg)')
-        # 缩放图片 设置标签的图片
-        jpg = QtGui.QPixmap(image_file).scaled(self.label_OrImg.width(), self.label_OrImg.height())
         if(image_file==''):
             return 0
-        #注意此处的路径关系
-        self.OrImgPath = image_file
-        #self.curHandleImagepath = image_file
-        self.CurHandleImage = cv2.imread(image_file)
-        self.label_OrImg.setPixmap(jpg)
-        self.IsShrankFlag = False
+        print(image_file)
+        img = cv2.imread(image_file)  # 读取图像
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # 转换图像  通道
 
+        y = img.shape[0]  # 图像宽
+        x = img.shape[1]  # 获取图像大小
+        #将OpenCV图片转为Qimage图片
+        frame = QImage(img, x, y, x *3, QImage.Format_RGB888)
+        pix = QPixmap.fromImage(frame)
+        self.OrImgitem.setPixmap(pix)
+        self.OrImgscene.addItem(self.OrImgitem)
+        self.OrImgView.setScene(self.OrImgscene)  # 将场景添加至视图
+
+        #注意此处的路径关系，将路径和图片保存为全局变量
+        self.OrImgPath = image_file
+        self.CurHandleImage = cv2.imread(image_file)
+        self.IsShrankFlag = False
+        self.golobalBinary=True
+        self.localBinary=False
         self.curHandleLocalRectangle = cv2.imread(image_file) # 当前正处理的局部矩阵
         self.globalRectangle = cv2.imread(image_file)  # 全局矩阵
         # print('globalRectangle.shape:%s',self.globalRectangle.shape)
@@ -118,13 +135,17 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             img=cv2.imread(self.OrImgPath)
             save_gray=algorithms.image_binarization(img,self.Threshold)
             binaryImgPath =utils.SaveBinaryImage(save_gray,self.OrImgPath)
-            gray=cv2.imread(binaryImgPath) #保存只有再读入，这样就可以统一处理
-            self.globalRectangle=gray  #显示整个二值化之后的矩阵
-            image = QtGui.QImage(gray.data, gray.shape[1], gray.shape[0], gray.shape[1]*3,  QtGui.QImage.Format_RGB888)
-            # 加载图片,并自定义图片展示尺寸
-            cur_img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(cur_img)
-            self.BinaryImgPath = binaryImgPath
+            binaryImg=cv2.imread(binaryImgPath)  #读取二值化图的路径，为3通道的图
+            self.globalRectangle=binaryImg
+            binaryImg = cv2.cvtColor(binaryImg, cv2.COLOR_BGR2RGB)
+            frame = QImage(binaryImg, binaryImg.shape[1], binaryImg.shape[0], binaryImg.shape[1] * 3, QImage.Format_RGB888)
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)  # 将二值化图片的场景添加至视图
+            self.BinaryImgPath = binaryImgPath  #更新单一阈值二值化图片保存的路径
+            self.localBinary=False
+            self.golobalBinary=True
         else:
             img = cv2.imread(self.OrImgPath)
             # 指定阈值 灰度二值化
@@ -132,12 +153,18 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             rec_img = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
             save_gray = algorithms.image_binarization(rec_img, self.Threshold)
             binaryImgLocalityPath=utils.SaveBinaryLocalityImage(save_gray, self.OrImgPath)
-            gray=cv2.imread(binaryImgLocalityPath)
-            self.curHandleLocalRectangle=gray
+            recimg_binary=cv2.imread(binaryImgLocalityPath)
+            self.curHandleLocalRectangle=recimg_binary
             # 将图像转换成QT能够识别的格式
-            image = QtGui.QImage(gray.data, gray.shape[1], gray.shape[0], gray.shape[1]*3,  QtGui.QImage.Format_RGB888)
-            img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(img)
+            recimg_binary = cv2.cvtColor(recimg_binary, cv2.COLOR_BGR2RGB)
+            frame = QImage(recimg_binary , recimg_binary.shape[1], recimg_binary.shape[0],
+                                 recimg_binary.shape[1]*3, QImage.Format_RGB888)
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)
+            self.golobalBinary=False
+            self.localBinary=True
 
     def setSingleThreshold(self):
         num, ok = QInputDialog.getInt(self, '输入阈值范围', '阈值范围0-255',value=self.Threshold,min=0,max=250)
@@ -166,7 +193,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
     # 子界面信号对应的槽函数
     def getChDiffData(self, diffCh):
-        print('diffch的值为：', diffCh)
+        #print('diffch的值为：', diffCh)
         d = int(diffCh)
         if (self.OrImgPath == ''):
             QMessageBox.warning(self, "提示", "未读取图层照片,请读取图片后再处理", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
@@ -180,13 +207,16 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             img = copy.deepcopy(self.CurHandleImage)
             img = algorithms.ChDiffExtract(img, d)  # 无需返回参数，已经在内存中发生修改
             self.globalRectangle = img
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            frame = QImage(img.data, img.shape[1], img.shape[0], img.shape[1] * 3,
+                           QtGui.QImage.Format_RGB888)
             # 默认将处理后的的img图片写入ImgSave对应的目录下
             utils.SaveRGBDiffImage(img,self.OrImgPath)
             # 将图片转成BGR模式; img_rgb.shape[1] * img_rgb.shape[2]必须添加  不然照片是斜着的
-            img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] *3,
-                                 QtGui.QImage.Format_RGB888)
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)
         else:
             # 读取局部区域的子图，进行通道差值处理
             image = cv2.imread(self.OrImgPath)
@@ -199,12 +229,14 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.curHandleLocalRectangle=rec_img
             utils.SaveRGBDiffLocalityImage(img,self.OrImgPath)
             # 将图片转成BGR模式
-            img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            QtImg = QtGui.QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.shape[1] * 3,
-                                 QtGui.QImage.Format_RGB888)
-        # 显示图片到label中
-        self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(QtImg))
+            # 将图片转成BGR模式
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            frame = QImage(img.data, img.shape[1], img.shape[0], img.shape[1] * 3,
+                           QtGui.QImage.Format_RGB888)
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)
 
 
     def closeWindow(self):
@@ -217,7 +249,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         cvimg = QtGui.QImage(cvimg.data, width, height,width*depth, QtGui.QImage.Format_RGB888)
         return cvimg
 
-    def layerOverlay(self):
+    def layerOverlay(self):  #目前，只能单一阈值后，才能进行图层覆盖操作
         #第一种将pyqt的按钮改成中文，比较美观，我使用的是第二种
         # self.messageBox = QMessageBox()
         # self.messageBox.setWindowTitle('图层叠加')
@@ -237,29 +269,36 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         qno = self.box.addButton(self.tr("取消"), QMessageBox.NoRole)
         self.box.exec_()
         if self.box.clickedButton() == qyes:
-            if(self.OrImgPath=='' or self.BinaryImgPath=='' ):
-                QMessageBox.warning(self, "提示", "未读取图层照片或未处理照片", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if(self.OrImgPath==''):
+                QMessageBox.warning(self, "提示", "未读取图层照片", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
                 return 0
-            orImg = cv2.imread(self.OrImgPath)
-            binbaryImg = cv2.imread(self.BinaryImgPath)
-
-            #将二值化图片改成黄色
-            np.where(binbaryImg[:, :, 1] > 0, binbaryImg[:, :, 1], 255)
-            np.where(binbaryImg[:, :, 2] > 0, binbaryImg[:, :, 2], 255)
-            binbaryImg[:, :, 0] = 0
-
-            #保存图像半透明式覆盖原图层照片及其路径
-            img = cv2.addWeighted(orImg, 0.75, binbaryImg, 0.25, 0)
-            content, tempfilename = os.path.split(self.OrImgPath)
-            filename, extension = os.path.splitext(tempfilename)
-            filename = filename + str('_MergeImg') + extension
-            filepath = os.path.join(content, filename)
-            filepath = filepath.replace('\\', '/')
-            self.MergeImgPath=filepath
-            cv2.imwrite(filepath ,img)
-            #缩放尺寸，标签显示图片
-            img = cv2.resize(img, (self.label_BinaryImg.height(), self.label_BinaryImg.width()))
-            self.label_BinaryImg.setPixmap(QtGui.QPixmap.fromImage(self.cvimg_to_qtimg(img)))
+            if(self.golobalBinary):
+                orImg = cv2.imread(self.OrImgPath)
+                binbaryImg = cv2.imread(self.BinaryImgPath)
+                #将二值化图片改成黄色
+                np.where(binbaryImg[:, :, 1] > 0, binbaryImg[:, :, 1], 255)
+                #np.where(binbaryImg[:, :, 2] > 0, binbaryImg[:, :, 2], 255)
+                binbaryImg[:, :, 2] = 0
+                binbaryImg[:, :, 0]=0
+                #保存图像半透明式覆盖原图层照片及其路径
+                img = cv2.addWeighted(orImg, 0.8, binbaryImg, 0.2, 1)
+                content, tempfilename = os.path.split(self.OrImgPath)
+                filename, extension = os.path.splitext(tempfilename)
+                filename = filename + str('_MergeImg') + extension
+                filepath = os.path.join(content, filename)
+                filepath = filepath.replace('\\', '/')
+                self.MergeImgPath=filepath
+                cv2.imwrite(filepath,img)
+                #显示图片
+                MergeImg= cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                frame = QImage(MergeImg, MergeImg.shape[1], MergeImg.shape[0], MergeImg.shape[1] * 3, QImage.Format_RGB888)
+                pix = QPixmap.fromImage(frame)
+                self.BinaryImgitem.setPixmap(pix)
+                self.BinaryImgscene.addItem(self.BinaryImgitem)
+                self.BinaryImgView.setScene(self.BinaryImgscene)  # 将场景添加至视图
+            elif(self.localBinary):
+                QMessageBox.warning(self, "提示", "请在局部处理结束后再进行图层覆盖", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                return 0
         else:
             return 0
 
@@ -313,10 +352,59 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         image_hight = self.CurHandleImage.shape[1]
         real_x = float(x) / float(label_width) * image_width
         real_y = float(y) / float(label_hight) * image_hight
-        print("xxxxx%s" % x)
-        print("yyyyy%s" % y)
+        # print("xxxxx%s" % x)
+        # print("yyyyy%s" % y)
         NowCorrdinate = '横坐标：' + str(int(real_x)) + ' 纵坐标: ' + str(int(real_y))
         QMessageBox.about(self, '当前坐标', NowCorrdinate)
+
+
+    def getOrImgPos(self,event):
+        x = event.pos().x()
+        y = event.pos().y()
+        print(self.OrImgView.width(), self.OrImgView.height(),
+              self.BinaryImgView.width(), self.BinaryImgView.height())
+        NowCorrdinate = '横坐标：' + str(int(x)) + ' 纵坐标: ' + str(int(y))
+        QMessageBox.about(self, '当前坐标', NowCorrdinate)
+
+
+    def getBinaryImgPos(self,event):
+        x = event.pos().x()
+        y = event.pos().y()
+        print(self.OrImgView.width(), self.OrImgView.height(),
+              self.BinaryImgView.width(), self.BinaryImgView.height())
+        NowCorrdinate = '横坐标：' + str(int(x)) + ' 纵坐标: ' + str(int(y))
+        QMessageBox.about(self, '当前坐标', NowCorrdinate)
+
+    def on_button_AmplifyOrImg_clicked(self):
+        """
+                    点击方大图像
+        """
+        self.OrImgzoomscale = self.OrImgzoomscale + 0.05
+        if self.OrImgzoomscale >= 3:
+            self.OrImgzoomscale = 3
+        self.OrImgitem.setScale(self.OrImgzoomscale)  # 放大图像
+
+    def on_button_LessenOrImg_clicked(self):
+        """
+                  点击缩小图像
+        """
+        self.OrImgzoomscale  = self.OrImgzoomscale-0.05
+        if self.OrImgzoomscale  <= 0:
+            self.OrImgzoomscale  = 0.2
+        self.OrImgitem.setScale(self.OrImgzoomscale)  # 缩小图像
+
+
+    def on_button_AmplifyBinaryImg_clicked(self):
+        self.BinaryImgzoomscale = self.BinaryImgzoomscale + 0.05
+        if self.BinaryImgzoomscale >= 3:
+            self.BinaryImgzoomscale = 3
+        self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 放大图像
+
+    def on_button_lessenBinaryImg_clicked(self):
+        self.BinaryImgzoomscale = self.BinaryImgzoomscale - 0.05
+        if self.BinaryImgzoomscale <= 0:
+            self.BinaryImgzoomscale = 0.2
+        self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 放大图像
 
     def mouseMoveEvent(self, event):
         s = event.windowPos()
@@ -331,10 +419,14 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         #将局部区域小图的数组定义为私有变量，方便存储
         # self.curHandleLocalRectangle = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
         orgRecImage = img[n_start_y:n_end_y, n_start_x:n_end_x, :]
-        RGBImg = cv2.cvtColor(orgRecImage, cv2.COLOR_BGR2RGB)
-        image = QtGui.QImage(RGBImg, RGBImg.shape[1], RGBImg.shape[0],RGBImg.shape[1]*RGBImg.shape[2], QtGui.QImage.Format_RGB888)
-        image = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
-        self.label_OrImg.setPixmap(image)
+        #在转换图片格式的时候，必须要将BGR通道，转为RGB通道
+        orgRecImage = cv2.cvtColor(orgRecImage, cv2.COLOR_BGR2RGB)
+        frame = QImage(orgRecImage, orgRecImage.shape[1], orgRecImage.shape[0],
+                       orgRecImage.shape[1] * 3, QImage.Format_RGB888)
+        pix = QPixmap.fromImage(frame)
+        self.OrImgitem.setPixmap(pix)
+        self.OrImgscene.addItem(self.OrImgitem)
+        self.OrImgView.setScene(self.OrImgscene)
 
     def showCoordianteInputDialog(self):
         if self.OrImgPath == '':
@@ -372,35 +464,32 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         #先显示左边的原图
         img = cv2.imread(self.OrImgPath)
         RGB_Image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        image = QtGui.QImage(RGB_Image, RGB_Image.shape[1], RGB_Image.shape[0], RGB_Image.shape[1] * 3,
-                             QtGui.QImage.Format_RGB888)
-        img_show = QtGui.QPixmap(image).scaled(self.label_OrImg.width(), self.label_OrImg.height())
-        self.label_OrImg.setPixmap(img_show)
+        frame = QImage(RGB_Image, RGB_Image.shape[1], RGB_Image.shape[0], RGB_Image.shape[1] * 3, QImage.Format_RGB888)
+        pix = QPixmap.fromImage(frame)
+        self.OrImgitem.setPixmap(pix)
+        self.OrImgscene.addItem(self.OrImgitem)
+        self.OrImgView.setScene(self.OrImgscene)  # 将场景添加至视图
         self.IsShrankFlag = None
+
         #同时恢复右边的图像
-        if 2==self.globalRectangle.ndim:
-            image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1], QtGui.QImage.Format_Indexed8)
-            # 加载图片,并自定义图片展示尺寸
-            img = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(img)
-            print('二值化图像')
-        elif 3==self.globalRectangle.ndim:
-            # 将图片转化成Qt可读格式
-            image = QtGui.QImage(self.globalRectangle, self.globalRectangle.shape[1], self.globalRectangle.shape[0], self.globalRectangle.shape[1] * 3,QtGui.QImage.Format_RGB888)
-            # 加载图片,并自定义图片展示尺寸
-            image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(image)
+        if 3==self.globalRectangle.ndim:
+            recimg_binary = cv2.cvtColor(self.globalRectangle, cv2.COLOR_BGR2RGB)
+            frame = QImage(recimg_binary, recimg_binary.shape[1], recimg_binary.shape[0],
+                           recimg_binary.shape[1] * 3, QImage.Format_RGB888)
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)
             print('RGB或HSV图像')
         else:
             print('anoter type')
-
 
     def localCover(self):
         if (self.OrImgPath == ''):
             return
         if self.IsShrankFlag:
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
-            # 同时恢复右边的图像
+            #同时恢复右边的图像
             if 2 == self.globalRectangle.ndim:
                  self.globalRectangle[n_start_y:n_end_y, n_start_x:n_end_x]=self.curHandleLocalRectangle
             elif 3==self.globalRectangle.ndim:
@@ -434,9 +523,13 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.globalRectangle=new_image
             utils.SaveHSVTractImage(new_image,self.OrImgPath)
             # 将图片转化成Qt可读格式
-            image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
-            image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(image)
+            new_image= cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB)
+            frame = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1]*3, QtGui.QImage.Format_RGB888)
+            # 加载图片,并自定义图片展示尺寸
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)
         else:
             image = cv2.imread(self.OrImgPath)
             n_start_x, n_start_y, n_end_x, n_end_y = self.CoordinateSelectDialog.getCorrdiante()
@@ -449,11 +542,14 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.curHandleLocalRectangle = new_image
             utils.SaveHSVTractLocalityImage(new_image, self.OrImgPath)
             # 将图片转化成Qt可读格式
-            image = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1] * 3,
+            new_image= cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB)
+            frame = QtGui.QImage(new_image, new_image.shape[1], new_image.shape[0], new_image.shape[1] * 3,
                                  QtGui.QImage.Format_RGB888)
-            image = QtGui.QPixmap(image).scaled(self.label_BinaryImg.width(), self.label_BinaryImg.height())
-            self.label_BinaryImg.setPixmap(image)
-            print('这是缩放的图像')
+            # 加载图片,并自定义图片展示尺寸
+            pix = QPixmap.fromImage(frame)
+            self.BinaryImgitem.setPixmap(pix)
+            self.BinaryImgscene.addItem(self.BinaryImgitem)
+            self.BinaryImgView.setScene(self.BinaryImgscene)
 
 #子界面类，用于显示父窗口中的子窗口，解决QInputDialog一次只能输入一个弹窗的困扰
 class regionSplitWindow(QDialog,Ui_Dialog):

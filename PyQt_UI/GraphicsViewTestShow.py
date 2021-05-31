@@ -22,8 +22,8 @@ class picturezoom(QMainWindow, Ui_MainWindow):
         img = cv2.imread("../images/1-8/outline8_3.jpg")  # 读取图像
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # 转换图像  通道
         x = img.shape[1]  # 获取图像大小
-        y = img.shape[0]
-        self.zoomscale = 1  # 图片放缩尺度
+        y = img.shape[0]  #图像宽
+
         frame = QImage(img, x, y,x*3, QImage.Format_RGB888)
         pix = QPixmap.fromImage(frame)
         self.item = QGraphicsPixmapItem(pix)  # 创建像素图元
@@ -34,12 +34,16 @@ class picturezoom(QMainWindow, Ui_MainWindow):
         #self.picshow.setScene(self.scene)  # 将场景添加至视图
 
         self.item.mousePressEvent=self.getPos
+        print(x, y)
+        self.zoomscale = 1  # 图片放缩尺度
 
     def getPos(self, event):
             x = event.pos().x()
             y = event.pos().y()
             print("xxxxx%s" % x)
             print("yyyyy%s" % y)
+            print(self.ImgView.width(),self.ImgView.height(),
+                  self.BinaryImgView.width(),self.ImgView.height())
             NowCorrdinate = '横坐标：' + str(int(x)) + ' 纵坐标: ' + str(int(y))
             QMessageBox.about(self, '当前坐标', NowCorrdinate)
 
