@@ -117,6 +117,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
 
         self.OrImgzoomscale=np.minimum(float(self.OrImgView.height()/img.shape[1]),float(self.OrImgView.width()/img.shape[0]))
         self.OrImgitem.setScale(self.OrImgzoomscale)  # 缩小图像
+        print(self.OrImgzoomscale)
 
         # print('globalRectangle.shape:%s',self.globalRectangle.shape)
         # print('curHandleLocalRectangle.shape:%s', self.curHandleLocalRectangle.shape)
@@ -389,7 +390,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         """
                     点击方大图像
         """
-        self.OrImgzoomscale = self.OrImgzoomscale + 0.05
+        self.OrImgzoomscale = self.OrImgzoomscale + 0.025
         if self.OrImgzoomscale >= 3:
             self.OrImgzoomscale = 3
         self.OrImgitem.setScale(self.OrImgzoomscale)  # 放大图像
@@ -398,23 +399,26 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         """
                   点击缩小图像
         """
-        self.OrImgzoomscale  = self.OrImgzoomscale-0.05
-        if self.OrImgzoomscale  <= 0:
-            self.OrImgzoomscale  = 0.01
+        if self.OrImgzoomscale  <= 0.1:
+            self.OrImgzoomscale  = 0.02 if(0.02>(self.OrImgzoomscale-0.01)) else (self.OrImgzoomscale-0.01)
+        else:
+            self.OrImgzoomscale = self.OrImgzoomscale - 0.025
         self.OrImgitem.setScale(self.OrImgzoomscale)  # 缩小图像
 
 
     def on_button_AmplifyBinaryImg_clicked(self):
-        self.BinaryImgzoomscale = self.BinaryImgzoomscale + 0.05
+        self.BinaryImgzoomscale = self.BinaryImgzoomscale + 0.025
         if self.BinaryImgzoomscale >= 3:
             self.BinaryImgzoomscale = 3
         self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 放大图像
 
     def on_button_lessenBinaryImg_clicked(self):
-        self.BinaryImgzoomscale = self.BinaryImgzoomscale - 0.05
-        if self.BinaryImgzoomscale <= 0:
-            self.BinaryImgzoomscale = 0.01
-        self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 放大图像
+        if self.BinaryImgzoomscale <= 0.1:
+            self.BinaryImgzoomscale = 0.02 if (0.02 > (self.BinaryImgzoomscale - 0.01)) else (self.BinaryImgzoomscale - 0.01)
+        else:
+            self.BinaryImgzoomscale = self.BinaryImgzoomscale - 0.025
+
+        self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 缩小图像
 
     def mouseMoveEvent(self, event):
         s = event.windowPos()
