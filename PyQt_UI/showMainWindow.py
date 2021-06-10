@@ -115,8 +115,8 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.curHandleLocalRectangle = cv2.imread(image_file) # 当前正处理的局部矩阵
         self.globalRectangle = cv2.imread(image_file)  # 全局矩阵
 
-        scalefator=np.minimum(float(self.OrImgView.height()/img.shape[1]),float(self.OrImgView.width()/img.shape[0]))
-        self.OrImgitem.setScale(scalefator)  # 缩小图像
+        self.OrImgzoomscale=np.minimum(float(self.OrImgView.height()/img.shape[1]),float(self.OrImgView.width()/img.shape[0]))
+        self.OrImgitem.setScale(self.OrImgzoomscale)  # 缩小图像
 
         # print('globalRectangle.shape:%s',self.globalRectangle.shape)
         # print('curHandleLocalRectangle.shape:%s', self.curHandleLocalRectangle.shape)
@@ -148,9 +148,9 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.BinaryImgscene.addItem(self.BinaryImgitem)
             self.BinaryImgView.setScene(self.BinaryImgscene)  # 将二值化图片的场景添加至视图
             self.BinaryImgPath = binaryImgPath  #更新单一阈值二值化图片保存的路径
-            scalefator = np.minimum(float(self.BinaryImgView.height() / binaryImg.shape[1]),
+            self.BinaryImgzoomscale = np.minimum(float(self.BinaryImgView.height() / binaryImg.shape[1]),
                                     float(self.BinaryImgView.width() / binaryImg.shape[0]))
-            self.BinaryImgitem.setScale(scalefator)  # 缩小图像
+            self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 缩小图像
             self.localBinary=False
             self.golobalBinary=True
         else:
@@ -170,9 +170,9 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
             self.BinaryImgitem.setPixmap(pix)
             self.BinaryImgscene.addItem(self.BinaryImgitem)
             self.BinaryImgView.setScene(self.BinaryImgscene)
-            scalefator = np.minimum(float(self.BinaryImgView.height() / recimg_binary.shape[1]),
+            self.BinaryImgzoomscale = np.minimum(float(self.BinaryImgView.height() / recimg_binary.shape[1]),
                                     float(self.BinaryImgView.width() / recimg_binary.shape[0]))
-            self.BinaryImgitem.setScale(scalefator)  # 缩小图像
+            self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 缩小图像
             self.golobalBinary=False
             self.localBinary=True
 
