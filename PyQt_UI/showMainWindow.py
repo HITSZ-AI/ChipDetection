@@ -44,8 +44,8 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.MergeImgPath=''
         self.localImgPath=''   #局部区域的小图的路径
         self.diffCh=30
-        self.bigCh=0     #R通道
-        self.smallCh=1   #G通道
+        # self.bigCh=0     #R通道
+        # self.smallCh=1   #G通道
         self.curHandleLocalRectangle=np.zeros((1,1,1)) #当前正处理的局部矩阵
         self.globalRectangle=np.zeros((1,1,1))         #读取全局矩阵
         self.golobalBinary=False  #用于判断当前是否已经全局二值化
@@ -87,7 +87,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.Handle_HSV_M2.triggered.connect(self.showHSVChannelInputDialog)
         self.HSVChannelUI = showHSV_Channel_SelectUI()
 
-
     def readImg(self):
         # 从指定目录打开图片（*.jpg *.gif *.png *.jpeg），返回路径
         image_file, _ = QFileDialog.getOpenFileName(self, '打开图片', '../', 'Image files (*.jpg *.gif *.png *.jpeg)')
@@ -96,7 +95,6 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         print(image_file)
         img = cv2.imread(image_file)  # 读取图像
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # 转换图像  通道
-
         y = img.shape[0]  # 图像宽
         x = img.shape[1]  # 获取图像大小
         #将OpenCV图片转为Qimage图片
@@ -117,6 +115,7 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         # print('globalRectangle.shape:%s',self.globalRectangle.shape)
         # print('curHandleLocalRectangle.shape:%s', self.curHandleLocalRectangle.shape)
 
+    #目前只能保存单一阈值二值化的图层，后续需要改进
     def saveBinaryImg(self):
         #保存（*.jpg *.gif *.png *.jpeg）图片，返回路径
         image_file,_=QFileDialog.getSaveFileName(self,'保存二值化图片','../','Image files (*.jpg *.gif *.png *.jpeg)')
@@ -388,9 +387,9 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         """
                   点击缩小图像
         """
-        self.OrImgzoomscale  = self.OrImgzoomscale-0.05
-        if self.OrImgzoomscale  <= 0:
-            self.OrImgzoomscale  = 0.2
+        self.OrImgzoomscale = self.OrImgzoomscale - 0.025
+        if self.OrImgzoomscale <=0:
+            self.OrImgzoomscale = 0.025
         self.OrImgitem.setScale(self.OrImgzoomscale)  # 缩小图像
 
 
@@ -401,10 +400,11 @@ class showMainWindow(QMainWindow,Ui_MainWindow):
         self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 放大图像
 
     def on_button_lessenBinaryImg_clicked(self):
-        self.BinaryImgzoomscale = self.BinaryImgzoomscale - 0.05
+
+        self.BinaryImgzoomscale = self.BinaryImgzoomscale - 0.025
         if self.BinaryImgzoomscale <= 0:
-            self.BinaryImgzoomscale = 0.2
-        self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 放大图像
+            self.BinaryImgzoomscale = 0.025
+        self.BinaryImgitem.setScale(self.BinaryImgzoomscale)  # 缩小图像
 
     def mouseMoveEvent(self, event):
         s = event.windowPos()

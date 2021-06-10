@@ -89,7 +89,10 @@ def SaveBinaryImage(image,path):
     # 拼接文件名
     filename, extension = os.path.splitext(tempfilename)
     filename = filename + str('_binary') + extension
-    filepath = os.path.join("../images/ImgSave", filename)
+    content=content+"/BinaryImg"
+    if not os.path.exists(content):  # 如果不存在路径，则创建这个路径
+        os.makedirs(content)
+    filepath = os.path.join(content, filename)
     filepath = filepath.replace('\\', '/')
     print(filepath)
     cv2.imwrite(filepath, image)
@@ -100,7 +103,10 @@ def SaveBinaryLocalityImage(image,path):
     # 拼接文件名
     filename, extension = os.path.splitext(tempfilename)
     filename = filename + str('_binary_locality') + extension
-    filepath = os.path.join("../images/ImgSave", filename)
+    content = content + "/LocalBinaryImg"
+    if not os.path.exists(content):  # 如果不存在路径，则创建这个路径
+        os.makedirs(content)
+    filepath = os.path.join(content, filename)
     filepath = filepath.replace('\\', '/')
     print(filepath)
     cv2.imwrite(filepath, image)
@@ -111,7 +117,10 @@ def SaveRGBDiffImage(image,path):
     # 拼接文件名
     filename, extension = os.path.splitext(tempfilename)
     filename = filename + str('_RGBDiff') + extension
-    filepath = os.path.join("../images/ImgSave", filename)
+    content=content+"/RGBImg"
+    if not os.path.exists(content):  # 如果不存在路径，则创建这个路径
+        os.makedirs(content)
+    filepath = os.path.join(content, filename)
     filepath = filepath.replace('\\', '/')
     print(filepath)
     cv2.imwrite(filepath, image)
@@ -122,7 +131,10 @@ def SaveRGBDiffLocalityImage(image,path):
     # 拼接文件名
     filename, extension = os.path.splitext(tempfilename)
     filename = filename + str('_RGBDiff_locality') + extension
-    filepath = os.path.join("../images/ImgSave", filename)
+    content=content+"/RGBLocalImg"
+    if not os.path.exists(content):  # 如果不存在路径，则创建这个路径
+        os.makedirs(content)
+    filepath = os.path.join(content, filename)
     filepath = filepath.replace('\\', '/')
     print(filepath)
     cv2.imwrite(filepath, image)
@@ -130,10 +142,15 @@ def SaveRGBDiffLocalityImage(image,path):
 
 def SaveHSVTractImage(image,path):
     content, tempfilename = os.path.split(path)
+    print(content)
     # 拼接文件名
     filename, extension = os.path.splitext(tempfilename)
-    filename = filename + str('_HSCTract') + extension
-    filepath = os.path.join("../images/ImgSave", filename)
+    filename = filename + str('_HSVTract') + extension
+    #filepath = os.path.join(content,"/HsvImg")
+    content=content+"/HsvImg"
+    if not os.path.exists(content):  # 如果不存在路径，则创建这个路径
+        os.makedirs(content)
+    filepath=os.path.join(content,filename)
     filepath = filepath.replace('\\', '/')
     print(filepath)
     cv2.imwrite(filepath, image)
@@ -144,7 +161,10 @@ def SaveHSVTractLocalityImage(image,path):
     # 拼接文件名
     filename, extension = os.path.splitext(tempfilename)
     filename = filename + str('_HSCTract_locality') + extension
-    filepath = os.path.join("../images/ImgSave", filename)
+    content = content + "/LocalHSVImg"
+    if not os.path.exists(content):  # 如果不存在路径，则创建这个路径
+        os.makedirs(content)
+    filepath = os.path.join(content, filename)
     filepath = filepath.replace('\\', '/')
     print(filepath)
     cv2.imwrite(filepath, image)
