@@ -1,7 +1,7 @@
 import os
 import cv2
 
-
+#工具类，如导出TXT函数、保存图片等功能函数
 def is_number(s):
     if s == '':
         return False

@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 
+#算法工具类，给主界面提供了部分函数
 #对读入的图像进行单一阈值的二值化处理
 def image_binarization(image,Threshold):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
